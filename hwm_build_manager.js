@@ -15,7 +15,8 @@
 
 class ManagerService {
   
-  constructor() {
+  constructor(services) {
+    this.services = services;
     this._STORAGE_KEY = 'BM_ITEMS';
     this.items = [];
     this._restore();
@@ -32,11 +33,9 @@ class ManagerService {
     let item = {
       id: uniqid(),
       name: `Новый билд ${nextNumber}`,
-      fraction: {
-        main: null,
-        sub: null
-      }
+      fraction: this.services.fraction.default
     }
+
     this.items.push(item);
     this._store();
 
@@ -52,7 +51,7 @@ class ManagerService {
     this.items = items;
     this._store();
     
-    if (index == items.length) {
+    if (index === items.length) {
       return items[index - 1]
     }
     return items[index];
@@ -72,21 +71,16 @@ class ManagerService {
     return duplicate;
   }
   
-  update(changedItem) {
-    let founded = false;
-    let item;
-    for(item of this.items) {
-      if (item.id === changedItem.id) {
-        for (let key of Object.keys(changedItem)) {
-          item[key] = changedItem[key];
-        }
-        founded = true;
+  update(updatedItem) {
+    const items = this.items;
+    for (let index = 0; index < items.length; index++) {
+      if (items[index].id === updatedItem.id) {
+        items[index] = updatedItem;
         break;
       }
     }
-    if (!founded) return null;
     this._store();
-    return item;
+    return updatedItem;
   }
   
   _search(item) {
@@ -126,138 +120,91 @@ class ManagerService {
   
 }
 
+class FractionService {
+  
+  constructor() {
+    this.list = [
+      { fract: '1', classid: '0', name: 'Рыцарь' },
+      { fract: '1', classid: '1', name: 'Рыцарь света' },
+      { fract: '2', classid: '0', name: 'Некромант' },
+      { fract: '2', classid: '1', name: 'Некромант - повелитель смерти' },
+      { fract: '3', classid: '0', name: 'Маг' },
+      { fract: '3', classid: '1', name: 'Маг-разрушитель' },
+      { fract: '4', classid: '0', name: 'Эльф' },
+      { fract: '4', classid: '1', name: 'Эльф-заклинатель' },
+      { fract: '5', classid: '0', name: 'Варвар' },
+      { fract: '5', classid: '1', name: 'Варвар крови' },
+      { fract: '5', classid: '2', name: 'Варвар-шаман' },
+      { fract: '6', classid: '0', name: 'Темный эльф' },
+      { fract: '6', classid: '1', name: 'Темный эльф-укротитель' },
+      { fract: '7', classid: '0', name: 'Демон' },
+      { fract: '7', classid: '1', name: 'Демон тьмы' },
+      { fract: '8', classid: '0', name: 'Гном' },
+      { fract: '9', classid: '0', name: 'Степной варвар' }
+    ];
+    
+    this.map = {};
+    
+    for (let fraction of this.list) {
+      fraction.id = fraction.fract + fraction.classid;
+      this.map[fraction.id] = fraction;
+    }
+  }
+  
+  get default() {
+    return this.list[0];
+  }
+  
+}
+
+
 styles(`
-.mb-editor-fraction__block {}
+.mb-editor-name__block-label {
+  display: inline-block;
+}
+`);
+class EditorNameComponent {
+  
+  view({ attrs: { value, onchange } }) {
+
+    return m('.mb-editor-name__box', [
+      m('.mb-editor-name__block', [
+        m('.mb-editor-name__block-label', 'Название:'),
+        m('input', { oninput: m.withAttr('value', onchange), value })
+      ])
+    ])
+  }
+}
+
+
+styles(`
 .mb-editor-fraction__block-label {
   display: inline-block;
-  width: 70px;
 }
 `);
 class EditorFractionComponent {
   
-  constructor() {
-    this.fractions = [
-      { id: '1', name: 'Рыцарь', sub: [
-        { id: '0', name: 'Рыцарь' },
-        { id: '1', name: 'Рыцарь света' }
-      ]},
-      { id: '2', name: 'Некромант', sub: [
-        { id: '0', name: 'Некромант' },
-        { id: '1', name: 'Некромант - повелитель смерти' }
-      ]},
-      { id: '3', name: 'Маг', sub: [
-        { id: '0', name: 'Маг' },
-        { id: '1', name: 'Маг-разрушитель' }
-      ]},
-      { id: '4', name: 'Эльф', sub: [
-        { id: '0', name: 'Эльф' },
-        { id: '1', name: 'Эльф-заклинатель' }
-      ]},
-      { id: '5', name: 'Варвар', sub: [
-        { id: '0', name: 'Варвар' },
-        { id: '1', name: 'Варвар крови' },
-        { id: '2', name: 'Варвар-шаман' }
-      ]},
-      { id: '6', name: 'Темный эльф', sub: [
-        { id: '0', name: 'Темный эльф' },
-        { id: '1', name: 'Темный эльф-укротитель' }
-      ]},
-      { id: '7', name: 'Демон', sub: [
-        { id: '0', name: 'Демон' },
-        { id: '1', name: 'Демон тьмы' }
-      ]},
-      { id: '8', name: 'Гном' },
-      { id: '9', name: 'Степной варвар' }
-    ]
-
-    this._buildFractionMap();
-  }
-        
-  _buildFractionMap() {
-    this.fractionMap = this.fractions.reduce((map, fract) => {
-      map[fract.id] = {
-        main: fract,
-        sub: fract.sub 
-          ? fract.sub.reduce((map, sub) => { 
-              map[sub.id] = sub;
-              return map;
-            }, {})
-          : null
-      };
-      return map;
-    }, {});        
-  }
-  
-  _normalize() {
-    let { main, sub } = this.fraction;
-    if (!this.fractionMap.hasOwnProperty(main)) {
-      main = this.fraction.main = this.fractions[0].id;
-    }
-    let fract = this.fractionMap[main];
-    if (!fract.sub) {
-      sub = this.fraction.sub = null;
-    }
-    else if (!fract.sub.hasOwnProperty(sub)) {
-      sub = this.fraction.sub = fract.main.sub[0].id;
-    }
-  }
-  
-  _update({ fraction }) {
-    if (this.fraction != fraction) {
-      this.fraction = fraction;
-      this._normalize();
-    }
-  }
-  
-  changeFraction(id) {
-    this.fraction.main = id;
-    this.fraction.sub = null;
-    this._normalize();
-  }
-  
-  changeFractionSub(id) {
-    this.fraction.sub = id;
-    this._normalize();
+  constructor({ attrs: { services }}) {
+    this.services = services;
   }
 
-  view({ attrs }) {
-    this._update(attrs);
-    
-    const fractionBlock = () => {
-      return m('.mb-editor-fraction__block', [
+  view({ attrs: { value, onchange } }) {
+
+    return m('.mb-editor-fraction__box', [
+      m('.mb-editor-fraction__block', [
         m('.mb-editor-fraction__block-label', 'Фракция:'),
         m('select', 
-          { oninput: m.withAttr('value', this.changeFraction.bind(this)), value: this.fraction.main },
-          this.fractions.map((fract) => {
-            return m('option', { key: fract.id, value: fract.id }, fract.name);
+          { oninput: m.withAttr('value', (id) => { onchange(this.services.fraction.map[id]) }), value: value.id },
+          this.services.fraction.list.map((item) => {
+            return m('option', { key: item.id, value: item.id }, item.name);
           }))
       ])
-    }
-    
-    const fractionSubBlock = () => {
-      if (!this.fractionMap[this.fraction.main].sub) return null;
-      return m('.mb-editor-fraction__block', [
-        m('.mb-editor-fraction__block-label', 'Класс:'),
-        m('select', 
-          { oninput: m.withAttr('value', this.changeFractionSub.bind(this)), value: this.fraction.sub },
-          this.fractionMap[this.fraction.main].main.sub.map((sub) => {
-            return m('option', { key: sub.id, value: sub.id }, sub.name);
-          }))
-      ])
-    }
-    
-    return m('.mb-editor-fraction__box', [
-      fractionBlock(),
-      fractionSubBlock()
     ])
   }
-  
 }
 
 
 styles(`
-.mb-editor__section-title {
-}
 .mb-editor-save {
   font-weight: bold;
   cursor: pointer;
@@ -266,35 +213,31 @@ styles(`
 `);
 class EditorComponent {
   
-  _normalize() {
-    if (!this.item.fraction) {
-      this.item.fraction = {};
-    }
+  constructor({ attrs: { services }}) {
+    this.services = services;
   }
   
-  _update({ manager, item }) {
-    this.manager = manager;
-    if (this.originItem != item) {
-      this.originItem = item;
+  _updateItem(item) {
+    if (this._originItem !== item) {
+      this._originItem = item;
       this.item = deepCopy(item);
-      this._normalize();
     }
   }
-  
-  save() {
-    this.manager.update(this.item);
-  }
-  
-  view({ attrs }) {
-    this._update(attrs);
 
+  view({ attrs }) {
+    this._updateItem(attrs.item);
+    
+    let { onchange } = attrs;
+    let item = this.item;
+    let services = this.services;
+    
     return m('.mb-editor__box', [
       m('.mb-editor__section', [
-        m('.mb-editor__section-title', 'Фракция'),
-        m(EditorFractionComponent, { fraction: this.item.fraction })
+        m(EditorNameComponent, { value: item.name, onchange: (value) => { item.name = value } }),
+        m(EditorFractionComponent, { services, value: item.fraction, onchange: (value) => { item.fraction = value } })
       ]),
       m('.mb-editor-save', 
-        { onclick: this.save.bind(this) },
+        { onclick: () => { onchange(item) }},
         'Сохранить')
     ])
   }
@@ -388,17 +331,17 @@ styles(`
 `);
 class ManagerComponent {
 
-  _update({ onclose, manager }) {
+  constructor({ attrs: { services }}) {
+      this.services = services;    
+      this.selected = services.manager.items[0];
+  }
+  
+  _update({ onclose }) {
     this._onclose = onclose;
-    
-    if (this.manager != manager) {
-      this.manager = manager;    
-      this.selected = manager.items[0];      
-    }
   }
   
   get items() {
-    return this.manager.items;
+    return this.services.manager.items;
   }
   
   close() {
@@ -406,10 +349,10 @@ class ManagerComponent {
   }
   
   createNew() {
-    this.selected = this.manager.createNew();
+    this.selected = this.services.manager.createNew();
   }
   
-  select(item) {
+  selectItem(item) {
     this.selected = item;
   }
   
@@ -418,7 +361,7 @@ class ManagerComponent {
   }
   
   confirmRemoveOk() {
-    this.selected = this.manager.remove(this.selected);
+    this.selected = this.services.manager.remove(this.selected);
     this.confirmRemove = false;
   }
   
@@ -427,7 +370,11 @@ class ManagerComponent {
   }
   
   duplicateSelected() {
-    this.selected = this.manager.duplicate(this.selected);
+    this.selected = this.services.manager.duplicate(this.selected);
+  }
+  
+  updateItem(item) {
+    this.selected = this.services.manager.update(item);
   }
   
   view({ attrs }) {
@@ -486,14 +433,14 @@ class ManagerComponent {
     const list = () => {
       if (this.confirmRemove) return null;
       
-      if (this.items.length == 0) {
+      if (this.items.length === 0) {
         return m('.mb-manager__list-empty', 'Список пуст')
       }
       return m('.mb-manager__list', this.items.map((item) => {
         return m('.mb-manager__list-item', {
           key: item.id,
           class: (this.selected || {}).id === item.id ? 'mb-manager__list-item--selected' : '', 
-          onclick: () => { this.select(item) }
+          onclick: () => { this.selectItem(item) }
         }, item.name)
       }))
     }
@@ -503,7 +450,7 @@ class ManagerComponent {
       if (!this.selected) return null;
      
       return m('.mb-manager__body', [
-        m(EditorComponent, { manager: this.manager, item: this.selected })
+        m(EditorComponent, { services: this.services, item: this.selected, onchange: this.updateItem.bind(this) })
       ]);
     }
     
@@ -521,6 +468,30 @@ class ManagerComponent {
 }
 
 
+class ServiceContainer {
+  
+  constructor() {
+    this.instances = {};
+  }
+  
+  _service(ctor) {
+    let { name } = ctor;
+    if (!this.instances[name]) {
+      this.instances[name] = new ctor(this);
+    }
+    return this.instances[name];
+  }
+  
+  get manager() {
+    return this._service(ManagerService);
+  }
+  
+  get fraction() {
+    return this._service(FractionService);
+  }
+  
+}
+
 styles(`
 .mb-app__handler-box {
   background: #6b6b69;
@@ -535,7 +506,7 @@ styles(`
 class AppComponent {
   constructor() {
     this.editor = true;
-    this.manager = new ManagerService();
+    this.services = new ServiceContainer();
   }
   
   view() {
@@ -547,7 +518,7 @@ class AppComponent {
       ]),
       this.editor 
         ? m(ManagerComponent, { 
-            manager: this.manager, 
+            services: this.services,
             onclose: () => { this.editor = false }
           })
         : null
@@ -613,7 +584,7 @@ function deepCopy(value) {
   if (value instanceof Array) {
     return value.map(deepCopy);
   }
-  if (typeof value == 'object') {
+  if (typeof value === 'object') {
     let obj = {};
     for (let key of Object.keys(value)) {
       obj[key] = deepCopy(value[key])
