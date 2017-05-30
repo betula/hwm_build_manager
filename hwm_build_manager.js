@@ -6,7 +6,7 @@
 // @include     http://*heroeswm.ru/*
 // @include     http://178.248.235.15/*
 // @include     http://*lordswm.com/*
-// @encoding 	  utf-8
+// @encoding    utf-8
 // @version     1
 // @grant       none
 // @require     https://unpkg.com/mithril@1.1.1/mithril.js
@@ -31,7 +31,11 @@ class ManagerService {
     }
     let item = {
       id: uniqid(),
-      name: `Новый билд ${nextNumber}`
+      name: `Новый билд ${nextNumber}`,
+      fraction: {
+        main: null,
+        sub: null
+      }
     }
     this.items.push(item);
     this._store();
@@ -55,7 +59,7 @@ class ManagerService {
   }
   
   duplicate(item) {
-    let { founded, index } = this._search(item);
+    let { founded } = this._search(item);
     if (!founded) return null;
 
     let duplicate = deepCopy(item);
@@ -66,6 +70,23 @@ class ManagerService {
     this._store()
     
     return duplicate;
+  }
+  
+  update(changedItem) {
+    let founded = false;
+    let item;
+    for(item of this.items) {
+      if (item.id === changedItem.id) {
+        for (let key of Object.keys(changedItem)) {
+          item[key] = changedItem[key];
+        }
+        founded = true;
+        break;
+      }
+    }
+    if (!founded) return null;
+    this._store();
+    return item;
   }
   
   _search(item) {
@@ -105,14 +126,177 @@ class ManagerService {
   
 }
 
+styles(`
+.mb-editor-fraction__block {}
+.mb-editor-fraction__block-label {
+  display: inline-block;
+  width: 70px;
+}
+`);
+class EditorFractionComponent {
+  
+  constructor() {
+    this.fractions = [
+      { id: '1', name: 'Рыцарь', sub: [
+        { id: '0', name: 'Рыцарь' },
+        { id: '1', name: 'Рыцарь света' }
+      ]},
+      { id: '2', name: 'Некромант', sub: [
+        { id: '0', name: 'Некромант' },
+        { id: '1', name: 'Некромант - повелитель смерти' }
+      ]},
+      { id: '3', name: 'Маг', sub: [
+        { id: '0', name: 'Маг' },
+        { id: '1', name: 'Маг-разрушитель' }
+      ]},
+      { id: '4', name: 'Эльф', sub: [
+        { id: '0', name: 'Эльф' },
+        { id: '1', name: 'Эльф-заклинатель' }
+      ]},
+      { id: '5', name: 'Варвар', sub: [
+        { id: '0', name: 'Варвар' },
+        { id: '1', name: 'Варвар крови' },
+        { id: '2', name: 'Варвар-шаман' }
+      ]},
+      { id: '6', name: 'Темный эльф', sub: [
+        { id: '0', name: 'Темный эльф' },
+        { id: '1', name: 'Темный эльф-укротитель' }
+      ]},
+      { id: '7', name: 'Демон', sub: [
+        { id: '0', name: 'Демон' },
+        { id: '1', name: 'Демон тьмы' }
+      ]},
+      { id: '8', name: 'Гном' },
+      { id: '9', name: 'Степной варвар' }
+    ]
+
+    this._buildFractionMap();
+  }
+        
+  _buildFractionMap() {
+    this.fractionMap = this.fractions.reduce((map, fract) => {
+      map[fract.id] = {
+        main: fract,
+        sub: fract.sub 
+          ? fract.sub.reduce((map, sub) => { 
+              map[sub.id] = sub;
+              return map;
+            }, {})
+          : null
+      };
+      return map;
+    }, {});        
+  }
+  
+  _normalize() {
+    let { main, sub } = this.fraction;
+    if (!this.fractionMap.hasOwnProperty(main)) {
+      main = this.fraction.main = this.fractions[0].id;
+    }
+    let fract = this.fractionMap[main];
+    if (!fract.sub) {
+      sub = this.fraction.sub = null;
+    }
+    else if (!fract.sub.hasOwnProperty(sub)) {
+      sub = this.fraction.sub = fract.main.sub[0].id;
+    }
+  }
+  
+  _update({ fraction }) {
+    if (this.fraction != fraction) {
+      this.fraction = fraction;
+      this._normalize();
+    }
+  }
+  
+  changeFraction(id) {
+    this.fraction.main = id;
+    this.fraction.sub = null;
+    this._normalize();
+  }
+  
+  changeFractionSub(id) {
+    this.fraction.sub = id;
+    this._normalize();
+  }
+
+  view({ attrs }) {
+    this._update(attrs);
+    
+    const fractionBlock = () => {
+      return m('.mb-editor-fraction__block', [
+        m('.mb-editor-fraction__block-label', 'Фракция:'),
+        m('select', 
+          { oninput: m.withAttr('value', this.changeFraction.bind(this)), value: this.fraction.main },
+          this.fractions.map((fract) => {
+            return m('option', { key: fract.id, value: fract.id }, fract.name);
+          }))
+      ])
+    }
+    
+    const fractionSubBlock = () => {
+      if (!this.fractionMap[this.fraction.main].sub) return null;
+      return m('.mb-editor-fraction__block', [
+        m('.mb-editor-fraction__block-label', 'Класс:'),
+        m('select', 
+          { oninput: m.withAttr('value', this.changeFractionSub.bind(this)), value: this.fraction.sub },
+          this.fractionMap[this.fraction.main].main.sub.map((sub) => {
+            return m('option', { key: sub.id, value: sub.id }, sub.name);
+          }))
+      ])
+    }
+    
+    return m('.mb-editor-fraction__box', [
+      fractionBlock(),
+      fractionSubBlock()
+    ])
+  }
+  
+}
+
 
 styles(`
-
+.mb-editor__section-title {
+}
+.mb-editor-save {
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
 `);
 class EditorComponent {
   
-  view() {
-    
+  _normalize() {
+    if (!this.item.fraction) {
+      this.item.fraction = {};
+    }
+  }
+  
+  _update({ manager, item }) {
+    this.manager = manager;
+    if (this.originItem != item) {
+      this.originItem = item;
+      this.item = deepCopy(item);
+      this._normalize();
+    }
+  }
+  
+  save() {
+    this.manager.update(this.item);
+  }
+  
+  view({ attrs }) {
+    this._update(attrs);
+
+    return m('.mb-editor__box', [
+      m('.mb-editor__section', [
+        m('.mb-editor__section-title', 'Фракция'),
+        m(EditorFractionComponent, { fraction: this.item.fraction })
+      ]),
+      m('.mb-editor-save', 
+        { onclick: this.save.bind(this) },
+        'Сохранить')
+    ])
   }
   
 }
@@ -203,11 +387,14 @@ styles(`
 }
 `);
 class ManagerComponent {
-  constructor({attrs: { onclose, manager, selected }}) {
+
+  _update({ onclose, manager }) {
     this._onclose = onclose;
-    this.manager = manager;
     
-    this.selected = selected || manager.items[0];
+    if (this.manager != manager) {
+      this.manager = manager;    
+      this.selected = manager.items[0];      
+    }
   }
   
   get items() {
@@ -243,7 +430,8 @@ class ManagerComponent {
     this.selected = this.manager.duplicate(this.selected);
   }
   
-  view() {
+  view({ attrs }) {
+    this._update(attrs);
     
     const headerLeft = () => {
       let controls = [];
