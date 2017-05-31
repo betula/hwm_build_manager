@@ -32,14 +32,15 @@ class ManagerService {
         nextNumber = Math.max(nextNumber, (parseInt(match[1]) || 0) + 1);
       }
     }
+
     let item = {
       id: uniqid(),
       name: `Новый билд ${nextNumber}`,
-      fraction: this.services.fraction.default,
-      inventory: this.services.inventory.default,
+      fraction: this.services.fraction.default.id,
+      inventory: this.services.inventory.default.id,
       attribute: this.services.attribute.default,
       army: this.services.army.default,
-      skill: this.service.skill.default
+      skill: this.services.skill.default
     }
 
     this.items.push(item);
@@ -408,9 +409,9 @@ class EditorFractionComponent {
       m('.mb-editor-fraction__block', [
         m('.mb-editor-fraction__block-label', 'Фракция:'),
         m('select', 
-          { oninput: m.withAttr('value', (id) => { onchange(this.services.fraction.map[id]) }), value: value.id },
-          this.services.fraction.list.map((item) => {
-            return m('option', { key: item.id, value: item.id }, item.name);
+          { oninput: m.withAttr('value', onchange), value: value },
+          this.services.fraction.list.map(({ id, name }) => {
+            return m('option', { key: id, value: id }, name);
           }))
       ])
     ])
@@ -434,9 +435,9 @@ class EditorInventoryComponent {
       m('.mb-editor-inventory__block', [
         m('.mb-editor-inventory__block-label', 'Набор оружия:'),
         m('select', 
-          { oninput: m.withAttr('value', (id) => { onchange(this.services.inventory.map[id]) }), value: value.id },
-          this.services.inventory.list.map((item) => {
-            return m('option', { key: item.id, value: item.id }, item.name);
+          { oninput: m.withAttr('value', onchange), value: value },
+          this.services.inventory.list.map(({ id, name }) => {
+            return m('option', { key: id, value: id }, name);
           }))
       ])
     ])
@@ -522,25 +523,57 @@ class EditorArmyComponent {
 }
 
 styles(`
+.mb-editor-skill__option--main {
+  font-weight: bold;
+}
+.mb-editor-skill__list-item-name {
+  display: inline-block;
+  margin-right: 4px;
+}
+.mb-editor-skill__list-item-button {
+  display: inline-block;
+  cursor: pointer;
+}
 `);
 class EditorSkillComponent {
   
   constructor({ attrs: { services }}) {
     this.services = services;
   }
-
+  
   view({ attrs: { value, onchange } }) {
-
+    
+    const removeAction = (id) => {
+      let p = value.indexOf(id);
+      onchange(value.slice(0, p).concat( value.slice(p + 1) ));
+    };
+    
+    const list = () => {
+      return m('.mb-editor-skill__list', value.map((id) => {
+        return m('.mb-editor-skill__list-item', [
+          m('.mb-editor-skill__list-item-name', this.services.skill.map[id].name),
+          m('.mb-editor-skill__list-item-button', { onclick: () => { removeAction(id) } }, '[х]')
+        ])
+      }))
+    }
+    
+    const select = () => {
+      return m('select.mb-editor-skill__select', 
+        { oninput: m.withAttr('value', (id) => { onchange(value.concat(id)) }) }, [
+          m('option', 'Навыки:'),
+          this.services.skill.table.map(({ id, name, list }) => {
+            return m('optgroup', { key: id, label: name }, list.map(({ id, name, main }) => {
+              if (value.indexOf(id) !== -1) return null;
+              return m('option', { key: id, value: id, class: main ? 'mb-editor-skill__option--main': '' }, name)
+            }))
+          })
+        ])
+    };
+    
     return m('.mb-editor-skill__box', [
       m('.mb-editor-skill__block', [
-        m('select.mb-editor-skill__select', 
-          { oninput: m.withAttr('value', (id) => { onchange(this.services.skill.map[id]) }), value: value.id },
-          this.services.skill.table.map(({ id, name, list }) => {
-            return m('optgroup', { key: id, label: name }, 
-              list.map(({ id, name, main }) => {
-                return m('option', { key: id, value: id, class: main ? 'mb-editor-skill__option--main': '' }, name)
-              }));
-          }))
+        select(),
+        list()
       ])
     ])
   }
@@ -715,16 +748,8 @@ class ManagerComponent {
       this.selected = services.manager.items[0];
   }
   
-  _update({ onclose }) {
-    this._onclose = onclose;
-  }
-  
   get items() {
     return this.services.manager.items;
-  }
-  
-  close() {
-    this._onclose();
   }
   
   createNew() {
@@ -756,8 +781,11 @@ class ManagerComponent {
     this.selected = this.services.manager.update(item);
   }
   
-  view({ attrs }) {
-    this._update(attrs);
+  view({ attrs: { onclose } }) {
+    
+    const closeAction = () => {
+      onclose();
+    };
     
     const headerLeft = () => {
       let controls = [];
@@ -787,7 +815,7 @@ class ManagerComponent {
     const headerRight = () => {
       return m('.mb-manager__header-right', [
         m('.mb-manager__header-button',
-          { onclick: this.close.bind(this) },
+          { onclick: closeAction },
           'Закрыть')
       ]);
     };
