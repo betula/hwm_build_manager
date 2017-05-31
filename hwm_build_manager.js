@@ -38,7 +38,8 @@ class ManagerService {
       fraction: this.services.fraction.default,
       inventory: this.services.inventory.default,
       attribute: this.services.attribute.default,
-      army: this.services.army.default
+      army: this.services.army.default,
+      skill: this.service.skill.default
     }
 
     this.items.push(item);
@@ -241,6 +242,133 @@ class ArmyService {
 }
 
 
+
+class SkillService {
+  
+  constructor() {
+    this.table = [
+      { id: "attack", name: "Нападение", list: [
+        { id: "attack1", name: "Основы нападения", main: true },
+        { id: "attack2", name: "Развитое нападение", main: true },
+        { id: "attack3", name: "Искусное нападение", main: true },
+        { id: "battle_frenzy", name: "Боевое безумие" },
+        { id: "retribution", name: "Воздаяние" },
+        { id: "nature_wrath", name: "Лесная ярость" },
+        { id: "power_of_speed", name: "Мастерство скорости" },
+        { id: "excruciating_strike", name: "Мощный удар" },
+        { id: "archery", name: "Стрельба" },
+        { id: "tactics", name: "Тактика" },
+        { id: "cold_steel", name: "Холодная сталь" },
+      ]}, { id: "defense", name: "Защита", list: [
+        { id: "defense1", name: "Основы защиты", main: true },
+        { id: "defense2", name: "Развитая защита", main: true },
+        { id: "defense3", name: "Искусная защита", main: true },
+        { id: "last_stand", name: "Битва до последнего" },
+        { id: "stand_your_ground", name: "Глухая оборона" },
+        { id: "preparation", name: "Готовность" },
+        { id: "power_of_endurance", name: "Сила камня" },
+        { id: "resistance", name: "Сопротивление" },
+        { id: "protection", name: "Сопротивление магии" },
+        { id: "vitality", name: "Стойкость" },
+        { id: "evasion", name: "Уклонение" },
+      ]}, { id: "luck", name: "Удача", list: [
+        { id: "luck1", name: "Призрачная удача", main: true },
+        { id: "luck2", name: "Большая удача", main: true },
+        { id: "luck3", name: "Постоянная удача", main: true },
+        { id: "magic_resistance", name: "Магическое сопротивление" },
+        { id: "soldier_luck", name: "Солдатская удача" },
+        { id: "warlock_luck", name: "Удачливый чародей" },
+        { id: "swarming_gate", name: "Широкие врата ада" },
+        { id: "elven_luck", name: "Эльфийская удача" },
+      ]}, { id: "leadership", name: "Лидерство", list: [
+        { id: "leadership1", name: "Основы лидерства", main: true },
+        { id: "leadership2", name: "Развитое лидерство", main: true },
+        { id: "leadership3", name: "Искусное лидерство", main: true },
+        { id: "aura_of_swiftness", name: "Аура скорости" },
+        { id: "divine_guidance", name: "Воодушевление" },
+        { id: "battle_commander", name: "Лесной лидер" },
+        { id: "recruitment", name: "Сбор войск" },
+        { id: "empathy", name: "Сопереживание" },
+      ]}, { id: "enlightenment", name: "Образование", list: [
+        { id: "enlightenment1", name: "Начальное образование", main: true },
+        { id: "enlightenment2", name: "Среднее образование", main: true },
+        { id: "enlightenment3", name: "Высшее образование", main: true },
+        { id: "graduate", name: "Выпускник" },
+        { id: "wizard_reward", name: "Колдовская награда" },
+        { id: "know_your_enemy", name: "Лесное коварство" },
+        { id: "intelligence", name: "Притяжение маны" },
+        { id: "dark_revelation", name: "Тёмное откровение" },
+        { id: "arcane_exaltation", name: "Хранитель тайного" },
+      ]}, { id: "dark", name: "Магия Тьмы", list: [
+        { id: "dark1", name: "Основы магии Тьмы", main: true },
+        { id: "dark2", name: "Сильная магия Тьмы", main: true },
+        { id: "dark3", name: "Искусная магия Тьмы", main: true },
+        { id: "weakening_strike", name: "Ослабляющий удар" },
+        { id: "master_of_pain", name: "Повелитель боли" },
+        { id: "master_of_curses", name: "Повелитель проклятий" },
+        { id: "master_of_mind", name: "Повелитель разума" },
+      ]}, { id: "destructive", name: "Магия Хаоса", list: [
+        { id: "destructive1", name: "Основы магии Хаоса", main: true },
+        { id: "destructive2", name: "Сильная магия Хаоса", main: true },
+        { id: "destructive3", name: "Искусная магия Хаоса", main: true },
+        { id: "searing_fires", name: "Иссушающее пламя" },
+        { id: "sap_magic", name: "Истощение магии" },
+        { id: "fiery_wrath", name: "Огненная ярость" },
+        { id: "master_of_storms", name: "Повелитель бурь" },
+        { id: "master_of_fire", name: "Повелитель огня" },
+        { id: "master_of_ice", name: "Повелитель холода" },
+        { id: "secrets_of_destruction", name: "Тайны хаоса" },
+      ]}, { id: "light", name: "Магия Света", list: [
+        { id: "light1", name: "Основы магии Света", main: true },
+        { id: "light2", name: "Сильная магия Света", main: true },
+        { id: "light3", name: "Искусная магия Света", main: true },
+        { id: "master_of_blessings", name: "Дарующий благословение" },
+        { id: "master_of_abjuration", name: "Дарующий защиту" },
+        { id: "fire_resistance", name: "Защита от огня" },
+        { id: "master_of_wrath", name: "Повелитель ярости" },
+        { id: "refined_mana", name: "Тайны света" },
+      ]}, { id: "summon", name: "Магия Природы", list: [
+        { id: "summon1", name: "Основы магии Природы", main: true },
+        { id: "summon2", name: "Сильная магия Природы", main: true },
+        { id: "summon3", name: "Искусная магия Природы", main: true },
+        { id: "master_of_life", name: "Повелитель жизни" },
+      ]}, { id: "sorcery", name: "Чародейство", list: [
+        { id: "sorcery1", name: "Основы чародейства", main: true },
+        { id: "sorcery2", name: "Развитое чародейство", main: true },
+        { id: "sorcery3", name: "Искусное чародейство", main: true },
+        { id: "mana_regeneration", name: "Восполнение маны" },
+        { id: "erratic_mana", name: "Изменчивая мана" },
+        { id: "magic_insight", name: "Мудрость" },
+        { id: "arcane_brillance", name: "Тайное откровение" },
+        { id: "arcane_excellence", name: "Тайное преимущество" },
+        { id: "arcane_training", name: "Тайные знания" },
+      ]}, { id: "special", name: "Фракция", list: [
+        { id: "hellfire", name: "Адское пламя" },
+        { id: "magic_mirror", name: "Волшебное зеркало" },
+        { id: "zakarrow", name: "Заколдованная стрела" },
+        { id: "nomagicdamage", name: "Контроль магии" },
+        { id: "elf_shot", name: "Ливень из стрел" },
+        { id: "cre_master", name: "Повелитель существ" },
+        { id: "consumecorpse", name: "Поглощение трупов" },
+        { id: "dark_power", name: "Тёмная сила" },
+      ]}, 
+    ];
+    
+    this.map = {};
+    for (let section of this.table) {
+      for (let item of section.list) {
+        this.map[item.id] = item;
+      }
+    }
+  }
+  
+  get default() {
+    return [];
+  }
+  
+}
+
+
 styles(`
 .mb-editor-name__block-label {
   display: inline-block;
@@ -393,6 +521,31 @@ class EditorArmyComponent {
   }
 }
 
+styles(`
+`);
+class EditorSkillComponent {
+  
+  constructor({ attrs: { services }}) {
+    this.services = services;
+  }
+
+  view({ attrs: { value, onchange } }) {
+
+    return m('.mb-editor-skill__box', [
+      m('.mb-editor-skill__block', [
+        m('select.mb-editor-skill__select', 
+          { oninput: m.withAttr('value', (id) => { onchange(this.services.skill.map[id]) }), value: value.id },
+          this.services.skill.table.map(({ id, name, list }) => {
+            return m('optgroup', { key: id, label: name }, 
+              list.map(({ id, name, main }) => {
+                return m('option', { key: id, value: id, class: main ? 'mb-editor-skill__option--main': '' }, name)
+              }));
+          }))
+      ])
+    ])
+  }
+}
+
 
 styles(`
 .mb-editor__section {
@@ -403,6 +556,7 @@ styles(`
   padding: 3px 5px 4px 5px;
   border-top: 1px #5D413A solid;
   background: #F5F3EA;
+  height: 16px;
 }
 .mb-editor__save-button {
   font-weight: bold;
@@ -424,23 +578,35 @@ class EditorComponent {
     this.services = services;
   }
   
-  _updateItem(item) {
-    if (this._originItem !== item) {
-      this._originItem = item;
+  _updateOriginItem(item) {
+    if (this.originItem !== item) {
+      this.originItem = item;
       this.item = deepCopy(item);
     }
   }
 
   cancel() {
-    this.item = deepCopy(this._originItem);
+    this.item = deepCopy(this.originItem);
   }
   
-  view({ attrs }) {
-    this._updateItem(attrs.item);
-    
-    let { onchange } = attrs;
+  view({ attrs: { item: originItem, onchange } }) {
+    this._updateOriginItem(originItem);
+
     let item = this.item;
     let services = this.services;
+    
+    let buttons = () => {
+      if (deepEquals(this.item, originItem)) return null;
+      return [
+        m('.mb-editor__save-button', 
+          { onclick: () => { onchange(item) }},
+          'Сохранить'),
+        m('.mb-editor__cancel-button',
+          { onclick: this.cancel.bind(this) },
+          'Отменить')
+      ];
+    };
+    
     
     return m('.mb-editor__box', [
       m('.mb-editor__section', [
@@ -449,16 +615,9 @@ class EditorComponent {
         m(EditorInventoryComponent, { services, value: item.inventory, onchange: (value) => { item.inventory = value } }),
         m(EditorAttributeComponent, { services, value: item.attribute, onchange: (value) => { item.attribute = value } }),
         m(EditorArmyComponent, { services, value: item.army, onchange: (value) => { item.army = value } }),
+        m(EditorSkillComponent, { services, value: item.skill, onchange: (value) => { item.skill = value } }),
       ]),
-      m('.mb-editor__buttons', [
-        m('.mb-editor__save-button', 
-          { onclick: () => { onchange(item) }},
-          'Сохранить'),
-        m('.mb-editor__cancel-button',
-          { onclick: this.cancel.bind(this) },
-          'Отменить'
-          )
-      ])
+      m('.mb-editor__buttons', buttons())
     ])
   }
   
@@ -623,7 +782,7 @@ class ManagerComponent {
       }
       
       return m('.mb-manager__header-left', controls);
-    }
+    };
     
     const headerRight = () => {
       return m('.mb-manager__header-right', [
@@ -631,7 +790,7 @@ class ManagerComponent {
           { onclick: this.close.bind(this) },
           'Закрыть')
       ]);
-    }
+    };
     
     const confirmRemove = () => {
       if (!this.confirmRemove) return null;
@@ -648,7 +807,7 @@ class ManagerComponent {
             'Да')
         ]),
       ])
-    }
+    };
     
     const list = () => {
       if (this.confirmRemove) return null;
@@ -663,7 +822,7 @@ class ManagerComponent {
           onclick: () => { this.selectItem(item) }
         }, item.name)
       }))
-    }
+    };
     
     const body = () => {
       if (this.confirmRemove) return null;
@@ -672,7 +831,7 @@ class ManagerComponent {
       return m('.mb-manager__body', [
         m(EditorComponent, { services: this.services, item: this.selected, onchange: this.updateItem.bind(this) })
       ]);
-    }
+    };
     
     
     return m('.mb-manager__box', [
@@ -702,25 +861,12 @@ class ServiceContainer {
     return this.instances[name];
   }
   
-  get manager() {
-    return this._service(ManagerService);
-  }
-  
-  get fraction() {
-    return this._service(FractionService);
-  }
-  
-  get inventory() {
-    return this._service(InventoryService);
-  }
-  
-  get attribute() {
-    return this._service(AttributeService);
-  }
-
-  get army() {
-    return this._service(ArmyService);
-  }
+  get manager() { return this._service(ManagerService) }
+  get fraction() { return this._service(FractionService) }
+  get inventory() { return this._service(InventoryService) }
+  get attribute() { return this._service(AttributeService) }
+  get army() { return this._service(ArmyService) }
+  get skill() { return this._service(SkillService) }
   
 }
 
@@ -737,7 +883,7 @@ styles(`
 `);
 class AppComponent {
   constructor() {
-    this.editor = true;
+    this.manager = true;
     this.services = new ServiceContainer();
   }
   
@@ -745,13 +891,13 @@ class AppComponent {
     return m('.mb-app', [
       m('.mb-app__handler-box', [
         m('.mb-app__handler-editor-button', 
-          { onclick: () => { this.editor = true } }, 
+          { onclick: () => { this.manager = true } }, 
           'M')
       ]),
-      this.editor 
+      this.manager 
         ? m(ManagerComponent, { 
             services: this.services,
-            onclose: () => { this.editor = false }
+            onclose: () => { this.manager = false }
           })
         : null
     ]);
@@ -761,9 +907,10 @@ class AppComponent {
 
 function main() {
   let container = document.querySelector('body table table td');
-  if (!container) {
-    return
-  }
+  if (!container) return
+  
+  let checkAllowedPage = document.querySelector('a[href*="home.php"]');
+  if (!checkAllowedPage) return;
   
   let root = document.createElement('div');
   root.style.position = 'absolute';
@@ -824,6 +971,31 @@ function deepCopy(value) {
     return obj;
   }
   return value;
+}
+
+function deepEquals(a, b) {
+  if (a === b) return true;
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() === b.getTime();
+  }
+  if (a instanceof Array && b instanceof Array) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEquals(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  if (!a || !b) return false;
+  if (typeof a === 'object' && typeof b === 'object') {
+    let keys = Object.keys(a);
+    if (keys.length !== Object.keys(b).length) return false;
+    for (let key of keys) {
+      if (!b.hasOwnProperty(key)) return false;
+      if (!deepEquals(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 class LocalStorageArrayDriver {
