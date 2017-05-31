@@ -36,7 +36,9 @@ class ManagerService {
       id: uniqid(),
       name: `Новый билд ${nextNumber}`,
       fraction: this.services.fraction.default,
-      inventory: this.services.inventory.default
+      inventory: this.services.inventory.default,
+      attribute: this.services.attribute.default,
+      army: this.services.army.default
     }
 
     this.items.push(item);
@@ -209,6 +211,35 @@ class InventoryService {
   
 }
 
+class AttributeService {
+  
+  get list() {
+    return Object.keys(this.default);
+  }
+  
+  get default() {
+    return {
+      attack: 0,
+      defence: 0,
+      power: 0,
+      knowledge: 0
+    }
+  }
+  
+}
+
+class ArmyService {
+  
+  get iterator() {
+    return this.default;
+  }
+  
+  get default() {
+    return [ 0, 0, 0, 0, 0, 0, 0 ]
+  }
+  
+}
+
 
 styles(`
 .mb-editor-name__block-label {
@@ -284,8 +315,89 @@ class EditorInventoryComponent {
   }
 }
 
+styles(`
+.mb-editor-attribute__block-label {
+  display: inline-block;
+}
+.mb-editor-attribute__block-input {
+  width: 20px;
+  display: inline-block;
+}
+`);
+class EditorAttributeComponent {
+  
+  constructor({ attrs: { services }}) {
+    this.services = services;
+  }
+  
+  view({ attrs: { value, onchange } }) {
+    
+    let change = (name, val) => {
+      onchange(Object.assign({}, value, { [name]: parseInt(val) || 0 }));
+    }
+    
+    return m('.mb-editor-attribute__box', [
+      m('.mb-editor-attribute__block', [
+        m('.mb-editor-attribute__block-label', 'Аттрибуты:'),
+        this.services.attribute.list.map((name) => {
+          return m('input.mb-editor-attribute__block-input', 
+            { key: name, oninput: m.withAttr('value', (value) => { change(name, value) }), value: value[name] || 0 });
+        })
+      ])
+    ])
+  }
+}
 
 styles(`
+.mb-editor-army__block-label {
+  display: inline-block;
+}
+.mb-editor-army__block-controls {
+  display: inline-block;
+}
+.mb-editor-army__block-input {
+  width: 20px;
+  display: inline-block;
+}
+.mb-editor-army__block-input:nth-child(1), 
+.mb-editor-army__block-input:nth-child(2),
+.mb-editor-army__block-input:nth-child(3) {
+  width: 30px;
+}
+`);
+class EditorArmyComponent {
+  
+  constructor({ attrs: { services }}) {
+    this.services = services;
+  }
+  
+  view({ attrs: { value, onchange } }) {
+    
+    let change = (index, val) => {
+      let data = value.slice();
+      data[index] = parseInt(val) || 0;
+      onchange(data);
+    }
+    
+    return m('.mb-editor-army__box', [
+      m('.mb-editor-army__block', [
+        m('.mb-editor-army__block-label', 'Армия:'),
+        m('.mb-editor-army__block-controls', 
+          this.services.army.iterator.map((_, index) => {
+            return m('input.mb-editor-army__block-input', 
+              { key: index, oninput: m.withAttr('value', (value) => { change(index, value) }), value: value[index] || 0 })
+          })
+        )
+      ])
+    ])
+  }
+}
+
+
+styles(`
+.mb-editor__section {
+  padding-left: 6px;
+}
 .mb-editor__buttons {
   margin-top: 5px;
   padding: 3px 5px 4px 5px;
@@ -334,7 +446,9 @@ class EditorComponent {
       m('.mb-editor__section', [
         m(EditorNameComponent, { value: item.name, onchange: (value) => { item.name = value } }),
         m(EditorFractionComponent, { services, value: item.fraction, onchange: (value) => { item.fraction = value } }),
-        m(EditorInventoryComponent, { services, value: item.inventory, onchange: (value) => { item.inventory = value } })
+        m(EditorInventoryComponent, { services, value: item.inventory, onchange: (value) => { item.inventory = value } }),
+        m(EditorAttributeComponent, { services, value: item.attribute, onchange: (value) => { item.attribute = value } }),
+        m(EditorArmyComponent, { services, value: item.army, onchange: (value) => { item.army = value } }),
       ]),
       m('.mb-editor__buttons', [
         m('.mb-editor__save-button', 
@@ -598,6 +712,14 @@ class ServiceContainer {
   
   get inventory() {
     return this._service(InventoryService);
+  }
+  
+  get attribute() {
+    return this._service(AttributeService);
+  }
+
+  get army() {
+    return this._service(ArmyService);
   }
   
 }
