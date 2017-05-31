@@ -240,6 +240,24 @@ class ArmyService {
     return [ 0, 0, 0, 0, 0, 0, 0 ]
   }
   
+  isImportAvailable() {
+    return location.pathname.match(/^\/army\.php/);
+  }
+  
+  getImported() {
+    let param = document.querySelector('object[data*="recruitarmy.swf"] > param[name="FlashVars"]');
+    if (!param) return null;
+    
+    let vars = param.value.slice(9);
+    let chunks = vars.split(';M');
+    let items = [];
+    
+    for (let chunk of chunks) {
+      items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
+    }
+    return items;
+  }
+  
 }
 
 
@@ -367,6 +385,34 @@ class SkillService {
     return [];
   }
   
+  isImportAvailable() {
+    return location.pathname.match(/^\/skillwheel\.php/);
+  }
+  
+  getImported() {
+    let object = document.querySelector('embed[src*="skillwheel.swf"]');
+    if (!object) return null;
+    
+    let vars = object.getAttribute('flashvars');
+    
+    let rows = vars.match(/;builds=(.+)$/)[1].split('$');
+    let list = [];
+
+    for (let r of rows) {
+      let row = r.split('|');
+      if (row.length != 10) continue;
+
+      let id = row[0];
+      let has = row[8];
+      
+      if (has === '1') {
+        list.push(id);
+      }
+    }
+
+    return list;
+  }
+  
 }
 
 
@@ -461,7 +507,7 @@ class EditorAttributeComponent {
   
   view({ attrs: { value, onchange } }) {
     
-    let change = (name, val) => {
+    let changeAction = (name, val) => {
       onchange(Object.assign({}, value, { [name]: parseInt(val) || 0 }));
     }
     
@@ -470,7 +516,7 @@ class EditorAttributeComponent {
         m('.mb-editor-attribute__block-label', 'Аттрибуты:'),
         this.services.attribute.list.map((name) => {
           return m('input.mb-editor-attribute__block-input', 
-            { key: name, oninput: m.withAttr('value', (value) => { change(name, value) }), value: value[name] || 0 });
+            { key: name, oninput: m.withAttr('value', (value) => { changeAction(name, value) }), value: value[name] || 0 });
         })
       ])
     ])
@@ -485,13 +531,19 @@ styles(`
   display: inline-block;
 }
 .mb-editor-army__block-input {
-  width: 20px;
+  width: 24px;
   display: inline-block;
 }
 .mb-editor-army__block-input:nth-child(1), 
 .mb-editor-army__block-input:nth-child(2),
-.mb-editor-army__block-input:nth-child(3) {
+.mb-editor-army__block-input:nth-child(3),
+.mb-editor-army__block-input:nth-child(4){
   width: 30px;
+}
+.mb-editor-army__block-import-button {
+  margin-left: 4px;
+  display: inline-block;
+  cursor: pointer;
 }
 `);
 class EditorArmyComponent {
@@ -502,11 +554,23 @@ class EditorArmyComponent {
   
   view({ attrs: { value, onchange } }) {
     
-    let change = (index, val) => {
+    const changeAction = (index, val) => {
       let data = value.slice();
       data[index] = parseInt(val) || 0;
       onchange(data);
-    }
+    };
+    
+    const importAction = () => {
+      let val = this.services.army.getImported();
+      if (val) {
+        onchange(val);
+      }
+    };
+    
+    const importButton = () => {
+      if (!this.services.army.isImportAvailable()) return null;
+      return m('.mb-editor-army__block-import-button', { onclick: importAction }, '[<]')
+    };
     
     return m('.mb-editor-army__box', [
       m('.mb-editor-army__block', [
@@ -514,15 +578,19 @@ class EditorArmyComponent {
         m('.mb-editor-army__block-controls', 
           this.services.army.iterator.map((_, index) => {
             return m('input.mb-editor-army__block-input', 
-              { key: index, oninput: m.withAttr('value', (value) => { change(index, value) }), value: value[index] || 0 })
+              { key: index, oninput: m.withAttr('value', (value) => { changeAction(index, value) }), value: value[index] || 0 })
           })
-        )
+        ),
+        importButton()
       ])
     ])
   }
 }
 
 styles(`
+.mb-editor-skill__select {
+  display: inline-block;
+}
 .mb-editor-skill__option--main {
   font-weight: bold;
 }
@@ -532,6 +600,11 @@ styles(`
 }
 .mb-editor-skill__list-item-button {
   display: inline-block;
+  cursor: pointer;
+}
+.mb-editor-skill__import-button {
+  display: inline-block;
+  margin-left: 4px;
   cursor: pointer;
 }
 `);
@@ -546,6 +619,18 @@ class EditorSkillComponent {
     const removeAction = (id) => {
       let p = value.indexOf(id);
       onchange(value.slice(0, p).concat( value.slice(p + 1) ));
+    };
+    
+    const importAction = () => {
+      let val = this.services.skill.getImported();
+      if (val) {
+        onchange(val);
+      }
+    };
+    
+    const importButton = () => {
+      if (!this.services.skill.isImportAvailable()) return null;
+      return m('.mb-editor-skill__import-button', { onclick: importAction }, '[<]')
     };
     
     const list = () => {
@@ -571,10 +656,11 @@ class EditorSkillComponent {
     };
     
     return m('.mb-editor-skill__box', [
-      m('.mb-editor-skill__block', [
+      m('.mb-editor-skill__select-block', [
         select(),
-        list()
-      ])
+        importButton()
+      ]),
+      list()
     ])
   }
 }
@@ -601,9 +687,15 @@ styles(`
   cursor: pointer;
   display: inline-block;
 }
-.mb-editor__save-button:hover, .mb-editor__cancel-button:hover {
+.mb-editor__close-button {
+  cursor: pointer;
+}
+.mb-editor__save-button:hover, 
+.mb-editor__cancel-button:hover,
+.mb-editor__close-button:hover {
   text-decoration: underline;
 }
+
 `);
 class EditorComponent {
   
@@ -622,21 +714,23 @@ class EditorComponent {
     this.item = deepCopy(this.originItem);
   }
   
-  view({ attrs: { item: originItem, onchange } }) {
+  view({ attrs: { item: originItem, onchange, onclose } }) {
     this._updateOriginItem(originItem);
 
     let item = this.item;
     let services = this.services;
     
-    let buttons = () => {
-      if (deepEquals(this.item, originItem)) return null;
+    const closeAction = () => {
+      onclose();
+    }
+    
+    const buttons = () => {
+      if (deepEquals(this.item, originItem)) {
+        return m('.mb-editor__close-button', { onclick: closeAction }, 'Закрыть');
+      }
       return [
-        m('.mb-editor__save-button', 
-          { onclick: () => { onchange(item) }},
-          'Сохранить'),
-        m('.mb-editor__cancel-button',
-          { onclick: this.cancel.bind(this) },
-          'Отменить')
+        m('.mb-editor__save-button', { onclick: () => { onchange(item) }}, 'Сохранить'),
+        m('.mb-editor__cancel-button', { onclick: this.cancel.bind(this) }, 'Отменить')
       ];
     };
     
@@ -857,7 +951,7 @@ class ManagerComponent {
       if (!this.selected) return null;
      
       return m('.mb-manager__body', [
-        m(EditorComponent, { services: this.services, item: this.selected, onchange: this.updateItem.bind(this) })
+        m(EditorComponent, { services: this.services, item: this.selected, onchange: this.updateItem.bind(this), onclose: closeAction })
       ]);
     };
     
