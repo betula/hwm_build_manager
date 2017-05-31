@@ -9,16 +9,18 @@
 // @encoding    utf-8
 // @version     1
 // @grant       none
-// @require     https://unpkg.com/mithril@1.1.1/mithril.js
+// @require     https://unpkg.com/mithril@1.1.1/mithril.min.js
 // ==/UserScript==
+
 
 
 class ManagerService {
   
   constructor(services) {
     this.services = services;
-    this._STORAGE_KEY = 'BM_ITEMS';
+    this._storage = new LocalStorageArrayDriver('BM_MANAGER');
     this.items = [];
+    
     this._restore();
   }
   
@@ -33,7 +35,8 @@ class ManagerService {
     let item = {
       id: uniqid(),
       name: `Новый билд ${nextNumber}`,
-      fraction: this.services.fraction.default
+      fraction: this.services.fraction.default,
+      inventory: this.services.inventory.default
     }
 
     this.items.push(item);
@@ -100,22 +103,11 @@ class ManagerService {
   }
   
   _restore() {
-    let data = localStorage.getItem(this._STORAGE_KEY);
-    let items;
-    try {
-      items = JSON.parse(data);
-    }
-    catch(e) {
-      items = [];
-    }
-    if (!Array.isArray(items)) {
-      items = [];
-    }
-    this.items = items;
+    this.items = this._storage.fetch();
   }
   
   _store() {
-    localStorage.setItem(this._STORAGE_KEY, JSON.stringify(this.items));
+    this._storage.put(this.items);
   }
   
 }
@@ -145,10 +137,70 @@ class FractionService {
     
     this.map = {};
     
-    for (let fraction of this.list) {
-      fraction.id = fraction.fract + fraction.classid;
-      this.map[fraction.id] = fraction;
+    for (let item of this.list) {
+      item.id = item.fract + item.classid;
+      this.map[item.id] = item;
     }
+  }
+  
+  get default() {
+    return this.list[0];
+  }
+  
+}
+
+class InventoryService {
+  
+  constructor() {
+    this._storage = new LocalStorageArrayDriver('BM_INVENTORY');
+    this.loaded = false;
+    
+    this.list = [
+      { type: 'all_off', value: '100', name: 'Снять все' },
+      { type: 'all_on', value: '1', name: 'Набор 1' },
+      { type: 'all_on', value: '2', name: 'Набор 2' },
+      { type: 'all_on', value: '3', name: 'Набор 3' },
+      { type: 'all_on', value: '4', name: 'Набор 4' },
+      { type: 'all_on', value: '5', name: 'Набор 5' }
+    ]
+    
+    this.map = {};
+    
+    for (let item of this.list) {
+      item.id = item.type + item.value;
+      this.map[item.id] = item;
+    }
+    
+    this._sync();
+  }
+  
+  _sync() {
+    let list = [];
+    
+    if (location.pathname.match(/^\/inventory\.php/)) {
+      let nodes = document.querySelectorAll('a[href*="inventory.php?all_on"]');
+      for (let node of nodes) {
+        let [ _, type, value ] = node.getAttribute('href').match(/(all_on)=(\d)/);
+        let name = node.innerText;
+        list.push({
+          type,
+          value,
+          name
+        });
+      }
+      this._storage.put(list);
+      
+    } else {
+      list = this._storage.fetch();
+    }
+    
+    for (let item of list) {
+      let id = item.type + item.value;
+      if (this.map[id]) {
+        this.map[id].name = item.name;
+      }
+    }
+    
   }
   
   get default() {
@@ -162,6 +214,9 @@ styles(`
 .mb-editor-name__block-label {
   display: inline-block;
 }
+.mb-editor-name__block-input {
+  width: 200px;
+}
 `);
 class EditorNameComponent {
   
@@ -170,7 +225,7 @@ class EditorNameComponent {
     return m('.mb-editor-name__box', [
       m('.mb-editor-name__block', [
         m('.mb-editor-name__block-label', 'Название:'),
-        m('input', { oninput: m.withAttr('value', onchange), value })
+        m('input.mb-editor-name__block-input', { oninput: m.withAttr('value', onchange), value })
       ])
     ])
   }
@@ -203,12 +258,52 @@ class EditorFractionComponent {
   }
 }
 
+styles(`
+.mb-editor-inventory__block-label {
+  display: inline-block;
+}
+`);
+class EditorInventoryComponent {
+  
+  constructor({ attrs: { services }}) {
+    this.services = services;
+  }
+
+  view({ attrs: { value, onchange } }) {
+
+    return m('.mb-editor-inventory__box', [
+      m('.mb-editor-inventory__block', [
+        m('.mb-editor-inventory__block-label', 'Набор оружия:'),
+        m('select', 
+          { oninput: m.withAttr('value', (id) => { onchange(this.services.inventory.map[id]) }), value: value.id },
+          this.services.inventory.list.map((item) => {
+            return m('option', { key: item.id, value: item.id }, item.name);
+          }))
+      ])
+    ])
+  }
+}
+
 
 styles(`
-.mb-editor-save {
+.mb-editor__buttons {
+  margin-top: 5px;
+  padding: 3px 5px 4px 5px;
+  border-top: 1px #5D413A solid;
+  background: #F5F3EA;
+}
+.mb-editor__save-button {
   font-weight: bold;
   cursor: pointer;
-  margin-top: 10px;
+  display: inline-block;
+  margin-right: 8px;
+}
+.mb-editor__cancel-button {
+  cursor: pointer;
+  display: inline-block;
+}
+.mb-editor__save-button:hover, .mb-editor__cancel-button:hover {
+  text-decoration: underline;
 }
 `);
 class EditorComponent {
@@ -224,6 +319,10 @@ class EditorComponent {
     }
   }
 
+  cancel() {
+    this.item = deepCopy(this._originItem);
+  }
+  
   view({ attrs }) {
     this._updateItem(attrs.item);
     
@@ -234,11 +333,18 @@ class EditorComponent {
     return m('.mb-editor__box', [
       m('.mb-editor__section', [
         m(EditorNameComponent, { value: item.name, onchange: (value) => { item.name = value } }),
-        m(EditorFractionComponent, { services, value: item.fraction, onchange: (value) => { item.fraction = value } })
+        m(EditorFractionComponent, { services, value: item.fraction, onchange: (value) => { item.fraction = value } }),
+        m(EditorInventoryComponent, { services, value: item.inventory, onchange: (value) => { item.inventory = value } })
       ]),
-      m('.mb-editor-save', 
-        { onclick: () => { onchange(item) }},
-        'Сохранить')
+      m('.mb-editor__buttons', [
+        m('.mb-editor__save-button', 
+          { onclick: () => { onchange(item) }},
+          'Сохранить'),
+        m('.mb-editor__cancel-button',
+          { onclick: this.cancel.bind(this) },
+          'Отменить'
+          )
+      ])
     ])
   }
   
@@ -490,6 +596,10 @@ class ServiceContainer {
     return this._service(FractionService);
   }
   
+  get inventory() {
+    return this._service(InventoryService);
+  }
+  
 }
 
 styles(`
@@ -592,6 +702,33 @@ function deepCopy(value) {
     return obj;
   }
   return value;
+}
+
+class LocalStorageArrayDriver {
+  
+  constructor(key) {
+    this.key = key;
+  }
+  
+  fetch() {
+    let text = localStorage.getItem(this.key);
+    let data;
+    try {
+      data = JSON.parse(text);
+    }
+    catch(e) {
+      data = [];
+    }
+    if (!Array.isArray(data)) {
+      data = [];
+    }
+    return data;
+  }
+  
+  put(data) {
+    localStorage.setItem(this.key, JSON.stringify(data));
+  }
+  
 }
 
 try {
