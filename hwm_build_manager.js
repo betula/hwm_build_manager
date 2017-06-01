@@ -107,11 +107,29 @@ class ManagerService {
 
     this.items[index] = updatedItem;
     this._store();
+    
+    this.services.current.mayBeOnlyNameUpdated(updatedItem);
+
     return updatedItem;
   }
   
   search(item) {
     return this._searchById(item.id);
+  }
+  
+  searchEquals(item) {
+    let { founded, index } = this._searchById(item.id);
+    if (founded) {
+      if (deepEquals(item, this.items[index])) {
+        return {
+          founded,
+          index
+        }
+      }
+    }
+    return {
+      founded: false
+    }
   }
   
   _searchById(id) {
@@ -124,10 +142,7 @@ class ManagerService {
         break;
       }
     }
-    return {
-      founded,
-      index
-    }
+    return founded ? { founded, index } : { founded: false };
   }
   
   _searchByItem(item) {
@@ -140,10 +155,8 @@ class ManagerService {
         break;
       }
     }
-    return {
-      founded,
-      index
-    }
+    
+    return founded ? { founded, index } : { founded: false };
   }
   
   _restore() {
@@ -168,6 +181,20 @@ class CurrentService {
     return this._item;
   }
 
+  mayBeOnlyNameUpdated(updatedItem) {
+    let current = this._item;
+    
+    if (!current) return;
+    if (current.id !== updatedItem.id) return;
+    
+    let clone = deepCopy(current);
+    clone.name = updatedItem.name;
+    if (!deepEquals(clone, updatedItem)) return;
+    
+    current.name = updatedItem.name;
+    this._store();
+  }
+  
   isExpired() {
     if (!this._item) return false;
     let { founded, index } = this.services.manager.search(this._item);
@@ -186,6 +213,10 @@ class CurrentService {
         resolve(item);
       }, 1000);
     });
+  }
+  
+  equals(item) {
+    return deepEquals(this._item, item);
   }
   
   _update(item) {
@@ -1014,8 +1045,21 @@ styles(`
 class ManagerComponent {
 
   constructor({ attrs: { services }}) {
-      this.services = services;    
-      this.selected = services.manager.current || services.manager.items[0];
+    this.services = services;
+    
+    this._initSelected();
+  }
+  
+  _initSelected() {
+    let current = this.services.current.item;
+    if (current) {
+      let { founded, index } = this.services.manager.searchEquals(current);
+      if (founded) {
+        this.selected = this.services.manager.items[index];
+        return;
+      }
+    }
+    this.selected = this.services.manager.items[0];
   }
 
   createNew() {
@@ -1300,7 +1344,7 @@ class SelectorComponent {
       const box = m('.mb-selector__list-box', [
         m('.mb-selector__list', 
           items.map((item) => {
-            return m('.mb-selector__list-item', { class: item === current ? 'mb-selector__list-item--current' : '' }, [
+            return m('.mb-selector__list-item', { class: this.services.current.equals(item) ? 'mb-selector__list-item--current' : '' }, [
               m('.mb-selector__list-item-name', { onclick: () => { selectAction(item) } }, item.name),
               m('.mb-selector__list-item-force', { onclick: () => { selectAction(item, true) }}, '[*]')
             ])
