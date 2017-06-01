@@ -420,11 +420,15 @@ class SkillService {
 
 
 styles(`
+.mb-editor-name__box {
+  margin: 5px 0 0 0;
+}
 .mb-editor-name__block-label {
   display: inline-block;
+  width: 110px;
 }
 .mb-editor-name__block-input {
-  width: 200px;
+  width: 526px;
 }
 `);
 class EditorNameComponent {
@@ -442,8 +446,12 @@ class EditorNameComponent {
 
 
 styles(`
+.mb-editor-fraction__box {
+  margin: 5px 0;
+}
 .mb-editor-fraction__block-label {
   display: inline-block;
+  width: 110px;
 }
 `);
 class EditorFractionComponent {
@@ -468,8 +476,12 @@ class EditorFractionComponent {
 }
 
 styles(`
+.mb-editor-inventory__box {
+  margin: 5px 0;
+}
 .mb-editor-inventory__block-label {
   display: inline-block;
+  width: 110px;
 }
 `);
 class EditorInventoryComponent {
@@ -494,8 +506,12 @@ class EditorInventoryComponent {
 }
 
 styles(`
+.mb-editor-attribute__box {
+  margin: 5px 0;
+}
 .mb-editor-attribute__block-label {
   display: inline-block;
+  width: 110px;
 }
 .mb-editor-attribute__block-input {
   width: 20px;
@@ -527,8 +543,12 @@ class EditorAttributeComponent {
 }
 
 styles(`
+.mb-editor-army__box {
+  margin: 5px 0;
+}
 .mb-editor-army__block-label {
   display: inline-block;
+  width: 110px;
 }
 .mb-editor-army__block-controls {
   display: inline-block;
@@ -607,6 +627,9 @@ class EditorArmyComponent {
 }
 
 styles(`
+.mb-editor-skill__box {
+  margin: 5px 0;
+}
 .mb-editor-skill__select {
   display: inline-block;
 }
@@ -703,10 +726,10 @@ class EditorSkillComponent {
 
 styles(`
 .mb-editor__section {
-  padding-left: 6px;
+  padding: 5px 6px;
+  display: table-cell;
 }
 .mb-editor__buttons {
-  margin-top: 5px;
   padding: 3px 5px 4px 5px;
   border-top: 1px #5D413A solid;
   background: #F5F3EA;
@@ -730,7 +753,13 @@ styles(`
 .mb-editor__close-button:hover {
   text-decoration: underline;
 }
-
+.mb-editor__section-column {
+  float: left;
+  margin-right: 55px;
+}
+.mb-editor__section-column:last-child {
+  margin-right: 0;
+}
 `);
 class EditorComponent {
   
@@ -773,11 +802,15 @@ class EditorComponent {
     return m('.mb-editor__box', [
       m('.mb-editor__section', [
         m(EditorNameComponent, { value: item.name, onchange: (value) => { item.name = value } }),
-        m(EditorFractionComponent, { services, value: item.fraction, onchange: (value) => { item.fraction = value } }),
-        m(EditorInventoryComponent, { services, value: item.inventory, onchange: (value) => { item.inventory = value } }),
-        m(EditorAttributeComponent, { services, value: item.attribute, onchange: (value) => { item.attribute = value } }),
-        m(EditorArmyComponent, { services, value: item.army, onchange: (value) => { item.army = value } }),
-        m(EditorSkillComponent, { services, value: item.skill, onchange: (value) => { item.skill = value } }),
+        m('.mb-editor__section-column', [
+          m(EditorFractionComponent, { services, value: item.fraction, onchange: (value) => { item.fraction = value } }),
+          m(EditorInventoryComponent, { services, value: item.inventory, onchange: (value) => { item.inventory = value } }),
+          m(EditorAttributeComponent, { services, value: item.attribute, onchange: (value) => { item.attribute = value } }),
+          m(EditorArmyComponent, { services, value: item.army, onchange: (value) => { item.army = value } }),          
+        ]),
+        m('.mb-editor__section-column', [
+          m(EditorSkillComponent, { services, value: item.skill, onchange: (value) => { item.skill = value } }),          
+        ])
       ]),
       m('.mb-editor__buttons', buttons())
     ])
@@ -788,12 +821,12 @@ class EditorComponent {
 
 styles(`
 .mb-manager__box {
-  width: 970px;
+  width: 650px;
   border: 1px #5D413A solid;
   background: #fff;
   position: absolute;
-  left: 0;
-  top: 0;
+  left: 3px;
+  top: 3px;
   z-index: 3;
   box-sizing: border-box;
 }
@@ -1040,7 +1073,7 @@ styles(`
 `);
 class AppComponent {
   constructor() {
-    this.manager = true;
+    this.manager = false;
     this.services = new ServiceContainer();
   }
   
