@@ -1090,7 +1090,7 @@ styles(`
   display: flex;
   cursor: pointer;
 }
-.mb-selector__box--changing .mb-selector__handler {
+.mb-selector__handler--changing {
   cursor: wait;
 }
 .mb-selector__info {
@@ -1106,9 +1106,8 @@ styles(`
   color: #f5c137;
   border: 1px solid #f5c137;
   border-left: none;
-  padding: 2px 6px 4px 5px;
+  padding: 2px 8px 4px 5px;
   box-sizing: border-box;
-  width: 19px;
   position: relative;
 }
 .mb-selector__triangle-box:before {
@@ -1123,6 +1122,9 @@ styles(`
   position: absolute;
   left: 3px;
   top: 8px;
+}
+.mb-selector__triangle--up {
+  transform: rotate(180deg);
 }
 .mb-selector__list-handler {
   z-index: 3;
@@ -1150,13 +1152,6 @@ styles(`
   text-decoration: underline;
   cursor: default;
 }
-.mb-selector__list-item--cancel {
-  display: block;
-  border-top: 1px #5D413A solid;
-  padding: 4px 6px;
-  margin: 0;
-  background: #F5F3EA;
-}
 .mb-selector__list-item-name {
   display: inline-block;
 }
@@ -1167,6 +1162,20 @@ styles(`
 .mb-selector__list-item-force:hover {
   text-decoration: underline;
 }
+.mb-selector__list-footer {
+  display: block;
+  border-top: 1px #5D413A solid;
+  padding: 4px 6px;
+  margin: 0;
+  background: #F5F3EA;
+}
+.mb-selector__list-button-cancel {
+  cursor: pointer;
+  display: inline-block;
+}
+.mb-selector__list-button-cancel:hover {
+  text-decoration: underline;
+}
 `);
 class SelectorComponent {
   
@@ -1174,6 +1183,33 @@ class SelectorComponent {
     this.services = services;
     this.dropped = false;
     this.changing = false;
+  }
+  
+  oncreate({ dom }) {
+    const listener = (event) => {
+      if (!this.dropped) return;
+      
+      let node = event.target;
+      while(node && node.className) {
+        if (node === dom) {
+          return;
+        }
+        node = node.parentNode;
+      }
+      
+      this.dropped = false;
+      m.redraw();
+    };
+    
+    const body = document.body;
+    body.addEventListener('click', listener);
+    this.releaseBodyClickEvent = () => {
+      body.removeEventListener('click', listener);
+    }
+  }
+  
+  onbeforeremove() {
+    this.releaseBodyClickEvent();
   }
   
   drop() {
@@ -1206,15 +1242,16 @@ class SelectorComponent {
       if (!this.dropped) return null;
       
       const box = m('.mb-selector__list-box', [
-        items.map((item) => {
-          return m('.mb-selector__list-item', { class: item === current ? 'mb-selector__list-item--current' : '' }, [
-            m('.mb-selector__list-item-name', { onclick: () => { selectAction(item) } }, item.name),
-            m('.mb-selector__list-item-force', { onclick: () => { selectAction(item, true) }}, '[*]')
-          ])
-        }),
+        m('.mb-selector__list', 
+          items.map((item) => {
+            return m('.mb-selector__list-item', { class: item === current ? 'mb-selector__list-item--current' : '' }, [
+              m('.mb-selector__list-item-name', { onclick: () => { selectAction(item) } }, item.name),
+              m('.mb-selector__list-item-force', { onclick: () => { selectAction(item, true) }}, '[*]')
+            ])
+          })),
         current 
-          ? m('.mb-selector__list-item', { class: 'mb-selector__list-item--cancel' }, 
-              m('.mb-selector__list-item-name', { onclick: () => { selectAction(null); } }, 'Сбросить'))
+          ? m('.mb-selector__list-footer', 
+              m('.mb-selector__list-button-cancel', { onclick: () => { selectAction(null); } }, 'Сбросить'))
           : null,
       ]);
       
@@ -1229,10 +1266,11 @@ class SelectorComponent {
       ]);
     };
     
-    return m('.mb-selector__box', { class: this.changing ? 'mb-selector__box--changing' : ''}, [
-      m('.mb-selector__handler', { onclick: this.drop.bind(this) }, [
+    return m('.mb-selector__box', [
+      m('.mb-selector__handler', { onclick: this.drop.bind(this), class: this.changing ? 'mb-selector__handler--changing' : '' }, [
         info(),
-        m('.mb-selector__triangle-box', m('.mb-selector__triangle'))
+        m('.mb-selector__triangle-box', 
+          m('.mb-selector__triangle', { class: this.dropped ? 'mb-selector__triangle--up' : '' }))
       ]),
       list()
     ])
