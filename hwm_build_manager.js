@@ -33,6 +33,7 @@ class ServiceContainer {
   get attribute() { return this._service(AttributeService) }
   get army() { return this._service(ArmyService) }
   get skill() { return this._service(SkillService) }
+  get current() { return this._service(CurrentService) }
   
 }
 
@@ -44,7 +45,6 @@ class ManagerService {
     this.items = [];
     
     this._restore();
-    this.current = this.items[0];
   }
   
   createNew() {
@@ -73,7 +73,7 @@ class ManagerService {
   }
   
   remove(item) {
-    let { founded, index } = this._search(item);
+    let { founded, index } = this._searchByItem(item);
     if (!founded) return null;
     
     let items = this.items;
@@ -88,7 +88,7 @@ class ManagerService {
   }
   
   duplicate(item) {
-    let { founded } = this._search(item);
+    let { founded } = this._searchByItem(item);
     if (!founded) return null;
 
     let duplicate = deepCopy(item);
@@ -102,27 +102,35 @@ class ManagerService {
   }
   
   update(updatedItem) {
-    const items = this.items;
-    for (let index = 0; index < items.length; index++) {
-      if (items[index].id === updatedItem.id) {
-        items[index] = updatedItem;
-        break;
-      }
-    }
+    let { founded, index } = this._searchById(updatedItem.id);
+    if (!founded) return null;
+
+    this.items[index] = updatedItem;
     this._store();
     return updatedItem;
   }
   
-  changeCurrent(item, force) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        this.current = item;
-        resolve(item);
-      }, 1000);
-    });
+  search(item) {
+    return this._searchById(item.id);
   }
   
-  _search(item) {
+  _searchById(id) {
+    const items = this.items;
+    let founded = false;   
+    let index;
+    for (index = 0; index < items.length; index++) {
+      if (items[index].id === id) {
+        founded = true;
+        break;
+      }
+    }
+    return {
+      founded,
+      index
+    }
+  }
+  
+  _searchByItem(item) {
     const items = this.items;
     let founded = false;
     let index;
@@ -147,6 +155,54 @@ class ManagerService {
   }
   
 }
+
+class CurrentService {
+
+  constructor(services) {
+    this.services = services;
+    this._storage = new LocalStorageDriver('BM_CURRENT');
+    this._restore();
+  }
+
+  get item() {
+    return this._item;
+  }
+
+  isExpired() {
+    if (!this._item) return false;
+    let { founded, index } = this.services.manager.search(this._item);
+
+    if (!founded) return true;
+    return !deepEquals(this.services.manager.items[index], this._item);
+  }
+
+  change(item, force) {
+    item = deepCopy(item);
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        this._update(item);
+        
+        resolve(item);
+      }, 1000);
+    });
+  }
+  
+  _update(item) {
+    this._item = item;
+    this._store();
+  }
+  
+  _restore() {
+    this._item = this._storage.fetch();
+  }
+  
+  _store() {
+    this._storage.put(this._item);
+  }
+
+}
+
 
 class FractionService {
   
@@ -1221,7 +1277,7 @@ class SelectorComponent {
     let items = this.services.manager.items;
     if (!items.length) return null;
     
-    let current = this.services.manager.current;
+    let current = this.services.current.item;
     
     const selectAction = (item, force) => {
       if (item === current && !force) return;
@@ -1234,7 +1290,7 @@ class SelectorComponent {
         m.redraw();
       };
       
-      this.services.manager.changeCurrent(item, force)
+      this.services.current.change(item, force)
         .then(finish, finish);
     };
     
@@ -1262,7 +1318,9 @@ class SelectorComponent {
       if (!this.changing && !current) return null;
       
       return m('.mb-selector__info', [
-        this.changing ? 'Смена билда...' : current.name
+        this.changing 
+          ? 'Смена билда...' 
+          : [ this.services.current.isExpired() ? '*' : '', current.name ]
       ]);
     };
     
@@ -1409,7 +1467,7 @@ function deepEquals(a, b) {
   return false;
 }
 
-class LocalStorageArrayDriver {
+class LocalStorageDriver {
   
   constructor(key) {
     this.key = key;
@@ -1422,16 +1480,25 @@ class LocalStorageArrayDriver {
       data = JSON.parse(text);
     }
     catch(e) {
-      data = [];
-    }
-    if (!Array.isArray(data)) {
-      data = [];
+      data = null;
     }
     return data;
   }
   
   put(data) {
     localStorage.setItem(this.key, JSON.stringify(data));
+  }
+  
+}
+
+class LocalStorageArrayDriver extends LocalStorageDriver {
+  
+  fetch() {
+    let data = super.fetch();
+    if (!Array.isArray(data)) {
+      data = [];
+    }
+    return data;    
   }
   
 }
