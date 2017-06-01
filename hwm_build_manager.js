@@ -240,22 +240,24 @@ class ArmyService {
     return [ 0, 0, 0, 0, 0, 0, 0 ]
   }
   
-  isImportAvailable() {
-    return location.pathname.match(/^\/army\.php/);
-  }
-  
-  getImported() {
-    let param = document.querySelector('object[data*="recruitarmy.swf"] > param[name="FlashVars"]');
-    if (!param) return null;
-    
-    let vars = param.value.slice(9);
-    let chunks = vars.split(';M');
-    let items = [];
-    
-    for (let chunk of chunks) {
-      items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
-    }
-    return items;
+  getImportPromise() {
+
+    return m.request({
+      method: 'GET',
+      url: '/army.php',
+      deserialize: (html) => {
+        let m = html.match(/\<param name="FlashVars" value="param=\d+\|M([^"]+)/);
+        if (!m) return null;
+        
+        let chunks = m[1].split(';M');
+        let items = [];
+
+        for (let chunk of chunks) {
+          items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
+        }
+        return items;
+      }
+    })
   }
   
 }
@@ -385,32 +387,33 @@ class SkillService {
     return [];
   }
   
-  isImportAvailable() {
-    return location.pathname.match(/^\/skillwheel\.php/);
-  }
-  
-  getImported() {
-    let object = document.querySelector('embed[src*="skillwheel.swf"]');
-    if (!object) return null;
-    
-    let vars = object.getAttribute('flashvars');
-    
-    let rows = vars.match(/;builds=(.+)$/)[1].split('$');
-    let list = [];
+  getImportPromise() {
 
-    for (let r of rows) {
-      let row = r.split('|');
-      if (row.length != 10) continue;
+    return m.request({
+      method: 'GET',
+      url: '/skillwheel.php',
+      deserialize: (html) => {
+        let m = html.match(/\<param name="FlashVars" value='param=.+?;builds=([^']+)/);
+        if (!m) return null;
+        
+        let rows = m[1].split('$');
+        let items = [];
 
-      let id = row[0];
-      let has = row[8];
-      
-      if (has === '1') {
-        list.push(id);
+        for (let r of rows) {
+          let row = r.split('|');
+          if (row.length != 10) continue;
+
+          let id = row[0];
+          let has = row[8];
+
+          if (has === '1') {
+            items.push(id);
+          }
+        }
+
+        return items;
       }
-    }
-
-    return list;
+    })
   }
   
 }
@@ -545,6 +548,14 @@ styles(`
   display: inline-block;
   cursor: pointer;
 }
+.mb-editor-army__block-import-button--importing {
+  animation: mb-army-import-animation 1s infinite linear;
+  cursor: wait;
+}
+@keyframes mb-army-import-animation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(359deg); }
+}
 `);
 class EditorArmyComponent {
   
@@ -561,15 +572,23 @@ class EditorArmyComponent {
     };
     
     const importAction = () => {
-      let val = this.services.army.getImported();
-      if (val) {
-        onchange(val);
-      }
+      if (this.importing) return;
+      
+      this.importing = true;
+      
+      const finish = () => { this.importing = false };
+      
+      this.services.army.getImportPromise()
+        .then((val) => {
+          if (val) {
+            onchange(val);
+          }
+        })
+        .then(finish, finish);
     };
     
     const importButton = () => {
-      if (!this.services.army.isImportAvailable()) return null;
-      return m('.mb-editor-army__block-import-button', { onclick: importAction }, '[<]')
+      return m('.mb-editor-army__block-import-button', { onclick: importAction, class: this.importing ? 'mb-editor-army__block-import-button--importing' : '' }, '<')
     };
     
     return m('.mb-editor-army__box', [
@@ -607,6 +626,14 @@ styles(`
   margin-left: 4px;
   cursor: pointer;
 }
+.mb-editor-skill__import-button--importing {
+  animation: mb-skill-import-animation 1s infinite linear;
+  cursor: wait;
+}
+@keyframes mb-skill-import-animation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(359deg); }
+}
 `);
 class EditorSkillComponent {
   
@@ -622,15 +649,23 @@ class EditorSkillComponent {
     };
     
     const importAction = () => {
-      let val = this.services.skill.getImported();
-      if (val) {
-        onchange(val);
-      }
+      if (this.importing) return;
+      
+      this.importing = true;
+      
+      const finish = () => { this.importing = false };
+      
+      this.services.skill.getImportPromise()
+        .then((val) => {
+          if (val) {
+            onchange(val);
+          }
+        })
+        .then(finish, finish);
     };
     
     const importButton = () => {
-      if (!this.services.skill.isImportAvailable()) return null;
-      return m('.mb-editor-skill__import-button', { onclick: importAction }, '[<]')
+      return m('.mb-editor-skill__import-button', { onclick: importAction, class: this.importing ? 'mb-editor-skill__import-button--importing' : '' }, '<')
     };
     
     const list = () => {
