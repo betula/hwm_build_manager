@@ -175,13 +175,23 @@ class InventoryService {
       this.map[item.id] = item;
     }
     
-    this._sync();
+    this._restore();
   }
   
-  _sync() {
-    let list = [];
+  _restore() {
+    let list = this._storage.fetch();
     
+    for (let item of list) {
+      let id = item.type + item.value;
+      if (this.map[id]) {
+        this.map[id].name = item.name;
+      }
+    }
+  }
+  
+  importNames() {
     if (location.pathname.match(/^\/inventory\.php/)) {
+      let list = [];
       let nodes = document.querySelectorAll('a[href*="inventory.php?all_on"]');
       for (let node of nodes) {
         let [ _, type, value ] = node.getAttribute('href').match(/(all_on)=(\d)/);
@@ -191,20 +201,14 @@ class InventoryService {
           value,
           name
         });
+        
+        let id = type + value;
+        if (this.map[id]) {
+          this.map[id].name = name;
+        }
       }
-      this._storage.put(list);
-      
-    } else {
-      list = this._storage.fetch();
+      this._storage.put(list); 
     }
-    
-    for (let item of list) {
-      let id = item.type + item.value;
-      if (this.map[id]) {
-        this.map[id].name = item.name;
-      }
-    }
-    
   }
   
   get default() {
@@ -727,7 +731,7 @@ class EditorSkillComponent {
 styles(`
 .mb-editor__section {
   padding: 5px 6px;
-  display: table-cell;
+  display: table;
 }
 .mb-editor__buttons {
   padding: 3px 5px 4px 5px;
@@ -850,7 +854,6 @@ styles(`
 .mb-manager__header-button:hover {
   text-decoration: underline;
 }
-
 .mb-manager__list {
   max-height: 72px;
   overflow: auto;
@@ -861,6 +864,7 @@ styles(`
   padding-left: 6px;
   cursor: pointer;
   margin: 4px 0;
+  display: table;
 }
 .mb-manager__list-item:hover {
   text-decoration: underline;
@@ -1062,12 +1066,12 @@ class ServiceContainer {
 
 styles(`
 .mb-app__handler-box {
+}
+.mb-app__handler-editor-button {
   background: #6b6b69;
   color: #f5c137;
   border: 1px solif #f5c137;
   padding: 2px 6px 4px 5px;
-}
-.mb-app__handler-editor-button {
   cursor: pointer;
 }
 `);
@@ -1075,6 +1079,8 @@ class AppComponent {
   constructor() {
     this.manager = false;
     this.services = new ServiceContainer();
+    
+    this.services.inventory.importNames();
   }
   
   view() {
