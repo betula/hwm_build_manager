@@ -13,6 +13,28 @@
 // ==/UserScript==
 
 
+class ServiceContainer {
+  
+  constructor() {
+    this.instances = {};
+  }
+  
+  _service(ctor) {
+    let { name } = ctor;
+    if (!this.instances[name]) {
+      this.instances[name] = new ctor(this);
+    }
+    return this.instances[name];
+  }
+  
+  get manager() { return this._service(ManagerService) }
+  get fraction() { return this._service(FractionService) }
+  get inventory() { return this._service(InventoryService) }
+  get attribute() { return this._service(AttributeService) }
+  get army() { return this._service(ArmyService) }
+  get skill() { return this._service(SkillService) }
+  
+}
 
 class ManagerService {
   
@@ -22,6 +44,7 @@ class ManagerService {
     this.items = [];
     
     this._restore();
+    this.current = this.items[0];
   }
   
   createNew() {
@@ -88,6 +111,15 @@ class ManagerService {
     }
     this._store();
     return updatedItem;
+  }
+  
+  changeCurrent(item, force) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        this.current = item;
+        resolve(item);
+      }, 1000);
+    });
   }
   
   _search(item) {
@@ -572,9 +604,15 @@ styles(`
   display: inline-block;
   cursor: pointer;
 }
+.mb-editor-army__block-import-button:hover {
+  text-decoration: underline;
+}
 .mb-editor-army__block-import-button--importing {
   animation: mb-army-import-animation 1s infinite linear;
   cursor: wait;
+}
+.mb-editor-army__block-import-button--importing:hover {
+  text-decoration: none;
 }
 @keyframes mb-army-import-animation {
   0% { transform: rotate(0deg); }
@@ -648,14 +686,23 @@ styles(`
   display: inline-block;
   cursor: pointer;
 }
+.mb-editor-skill__list-item-button:hover {
+  text-decoration: underline;
+}
 .mb-editor-skill__import-button {
   display: inline-block;
   margin-left: 4px;
   cursor: pointer;
 }
+.mb-editor-skill__import-button:hover {
+  text-decoration: underline;
+}
 .mb-editor-skill__import-button--importing {
   animation: mb-skill-import-animation 1s infinite linear;
   cursor: wait;
+}
+.mb-editor-skill__import-button--importing:hover {
+  text-decoration: none;
 }
 @keyframes mb-skill-import-animation {
   0% { transform: rotate(0deg); }
@@ -859,9 +906,10 @@ styles(`
   overflow: auto;
   border-bottom: 1px #5D413A solid;
   margin-bottom: -1px;
+  white-space: nowrap;
 }
 .mb-manager__list-item {
-  padding-left: 6px;
+  padding: 0 6px;
   cursor: pointer;
   margin: 4px 0;
   display: table;
@@ -911,13 +959,9 @@ class ManagerComponent {
 
   constructor({ attrs: { services }}) {
       this.services = services;    
-      this.selected = services.manager.items[0];
+      this.selected = services.manager.current || services.manager.items[0];
   }
-  
-  get items() {
-    return this.services.manager.items;
-  }
-  
+
   createNew() {
     this.selected = this.services.manager.createNew();
   }
@@ -1003,13 +1047,14 @@ class ManagerComponent {
       ])
     };
     
-    const list = () => {
+    const list = () => {      
       if (this.confirmRemove) return null;
+      let items = this.services.manager.items;
       
-      if (this.items.length === 0) {
+      if (items.length === 0) {
         return m('.mb-manager__list-empty', 'Список пуст')
       }
-      return m('.mb-manager__list', this.items.map((item) => {
+      return m('.mb-manager__list', items.map((item) => {
         return m('.mb-manager__list-item', {
           key: item.id,
           class: (this.selected || {}).id === item.id ? 'mb-manager__list-item--selected' : '', 
@@ -1040,42 +1085,176 @@ class ManagerComponent {
   }
 }
 
-
-class ServiceContainer {
+styles(`
+.mb-selector__handler {
+  display: flex;
+  cursor: pointer;
+}
+.mb-selector__box--changing .mb-selector__handler {
+  cursor: wait;
+}
+.mb-selector__info {
+  padding: 2px 6px 4px 5px;
+  background: #6b6b69;
+  color: #f5c137;
+  white-space: nowrap;
+  border: 1px solid #f5c137;
+  border-left: none;
+}
+.mb-selector__triangle-box {
+  background: #6b6b69;
+  color: #f5c137;
+  border: 1px solid #f5c137;
+  border-left: none;
+  padding: 2px 6px 4px 5px;
+  box-sizing: border-box;
+  width: 19px;
+  position: relative;
+}
+.mb-selector__triangle-box:before {
+  content: "\\00a0";
+}
+.mb-selector__triangle {
+  width: 0; 
+  height: 0; 
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #f5c137;
+  position: absolute;
+  left: 3px;
+  top: 8px;
+}
+.mb-selector__list-handler {
+  z-index: 3;
+  position: relative;
+}
+.mb-selector__list-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px #5D413A solid;
+  background: #fff;
+}
+.mb-selector__list-item {
+  padding: 0 6px;
+  cursor: pointer;
+  margin: 4px 0;
+  display: table;
+  white-space: nowrap;
+}
+.mb-selector__list-item:hover .mb-selector__list-item-name {
+  text-decoration: underline;
+}
+.mb-selector__list-item--current .mb-selector__list-item-name {
+  color: rgb(255, 0, 0);
+  text-decoration: underline;
+  cursor: default;
+}
+.mb-selector__list-item--cancel {
+  display: block;
+  border-top: 1px #5D413A solid;
+  padding: 4px 6px;
+  margin: 0;
+  background: #F5F3EA;
+}
+.mb-selector__list-item-name {
+  display: inline-block;
+}
+.mb-selector__list-item-force {
+  display: inline-block;
+  margin-left: 5px;
+}
+.mb-selector__list-item-force:hover {
+  text-decoration: underline;
+}
+`);
+class SelectorComponent {
   
-  constructor() {
-    this.instances = {};
+  constructor({ attrs: { services }}) {
+    this.services = services;
+    this.dropped = false;
+    this.changing = false;
   }
   
-  _service(ctor) {
-    let { name } = ctor;
-    if (!this.instances[name]) {
-      this.instances[name] = new ctor(this);
-    }
-    return this.instances[name];
+  drop() {
+    if (this.changing) return;
+    this.dropped = !this.dropped;
   }
   
-  get manager() { return this._service(ManagerService) }
-  get fraction() { return this._service(FractionService) }
-  get inventory() { return this._service(InventoryService) }
-  get attribute() { return this._service(AttributeService) }
-  get army() { return this._service(ArmyService) }
-  get skill() { return this._service(SkillService) }
+  view() {
+    let items = this.services.manager.items;
+    if (!items.length) return null;
+    
+    let current = this.services.manager.current;
+    
+    const selectAction = (item, force) => {
+      if (item === current && !force) return;
+      
+      this.dropped = false;
+      this.changing = true;
+      
+      const finish = () => { 
+        this.changing = false 
+        m.redraw();
+      };
+      
+      this.services.manager.changeCurrent(item, force)
+        .then(finish, finish);
+    };
+    
+    const list = () => {
+      if (!this.dropped) return null;
+      
+      const box = m('.mb-selector__list-box', [
+        items.map((item) => {
+          return m('.mb-selector__list-item', { class: item === current ? 'mb-selector__list-item--current' : '' }, [
+            m('.mb-selector__list-item-name', { onclick: () => { selectAction(item) } }, item.name),
+            m('.mb-selector__list-item-force', { onclick: () => { selectAction(item, true) }}, '[*]')
+          ])
+        }),
+        current 
+          ? m('.mb-selector__list-item', { class: 'mb-selector__list-item--cancel' }, 
+              m('.mb-selector__list-item-name', { onclick: () => { selectAction(null); } }, 'Сбросить'))
+          : null,
+      ]);
+      
+      return m('.mb-selector__list-handler', box);
+    };
+    
+    const info = () => {
+      if (!this.changing && !current) return null;
+      
+      return m('.mb-selector__info', [
+        this.changing ? 'Смена билда...' : current.name
+      ]);
+    };
+    
+    return m('.mb-selector__box', { class: this.changing ? 'mb-selector__box--changing' : ''}, [
+      m('.mb-selector__handler', { onclick: this.drop.bind(this) }, [
+        info(),
+        m('.mb-selector__triangle-box', m('.mb-selector__triangle'))
+      ]),
+      list()
+    ])
+  }
   
 }
 
+
 styles(`
-.mb-app__handler-box {
+.mb-app__handler {
+  display: flex;
 }
 .mb-app__handler-editor-button {
   background: #6b6b69;
   color: #f5c137;
-  border: 1px solif #f5c137;
-  padding: 2px 6px 4px 5px;
+  border: 1px solid #f5c137;
+  padding: 2px 6px 4px 6px;
   cursor: pointer;
 }
 `);
 class AppComponent {
+  
   constructor() {
     this.manager = false;
     this.services = new ServiceContainer();
@@ -1084,17 +1263,15 @@ class AppComponent {
   }
   
   view() {
-    return m('.mb-app', [
-      m('.mb-app__handler-box', [
+    return m('.mb-app__box', [
+      m('.mb-app__handler', [
         m('.mb-app__handler-editor-button', 
           { onclick: () => { this.manager = true } }, 
-          'M')
+          '+'),
+        m(SelectorComponent, { services: this.services })
       ]),
       this.manager 
-        ? m(ManagerComponent, { 
-            services: this.services,
-            onclose: () => { this.manager = false }
-          })
+        ? m(ManagerComponent, { services: this.services, onclose: () => { this.manager = false } })
         : null
     ]);
   }
