@@ -113,10 +113,6 @@ class ManagerService {
     return updatedItem;
   }
   
-  search(item) {
-    return this._searchById(item.id);
-  }
-  
   searchEquals(item) {
     let { founded, index } = this._searchById(item.id);
     if (founded) {
@@ -197,10 +193,7 @@ class CurrentService {
   
   isExpired() {
     if (!this._item) return false;
-    let { founded, index } = this.services.manager.search(this._item);
-
-    if (!founded) return true;
-    return !deepEquals(this.services.manager.items[index], this._item);
+    return !this.services.manager.searchEquals(this._item).founded;
   }
 
   change(item, force) {
