@@ -35,6 +35,7 @@ class ServiceContainer {
   get army() { return this._service(ArmyService) }
   get skill() { return this._service(SkillService) }
   get current() { return this._service(CurrentService) }
+  get change() { return this._service(ChangeService) }
   
 }
 
@@ -143,17 +144,10 @@ class ManagerService {
   }
   
   _searchByItem(item) {
-    const items = this.items;
-    let founded = false;
-    let index;
-    for (index = 0; index < items.length; index++) {
-      if (items[index] === item) {
-        founded = true;
-        break;
-      }
-    }
-    
-    return founded ? { founded, index } : { founded: false };
+    let index = this.items.indexOf(item);
+    return index != -1 
+      ? { founded: true, index } 
+      : { founded: false };
   }
   
   _restore() {
@@ -199,14 +193,21 @@ class CurrentService {
 
   change(item, force) {
     item = deepCopy(item);
-    
-    return new Promise((resolve) => {
-      setTimeout(() => {
+
+    const change = () => {
+      if (!item) return item;
+      if (force || !this._item) {
+        return this.services.change.force(item);
+      }
+      return this.services.change.diff(this._item, item);
+    };
+
+    return this.changeQueue = (this.changeQueue || Promise.resolve())
+      .then(change, change)
+      .then((item) => {
         this._update(item);
-        
-        resolve(item);
-      }, 1000);
-    });
+        return item;
+      });
   }
   
   equals(item) {
@@ -228,6 +229,75 @@ class CurrentService {
 
 }
 
+class ChangeService {
+
+  force(to) {
+    return Promise.resolve()
+      .then(() => this._fraction(to.fraction))
+      .then(() => this._skill(to.skill))
+      .then(() => this._reset())
+      .then(() => this._attribute(to.attribute))
+      .then(() => this._army(to.army))
+      .then(() => this._inventory(to.inventory))
+      .then(() => to);
+  }
+
+  diff(from, to) {
+    const fractionChanged = from.fraction !== to.fraction;
+    const skillRecruitmentChanged = from.skill.indexOf('recruitment') !== to.skill.indexOf('recruitment');
+    const skillEnlightenmentChanged = [1, 2, 3].some((n) => {
+      const name = `enlightenment${n}`;
+      return from.skill.indexOf(name) !== to.skill.indexOf(name);
+    });
+    const attributeChanged = fractionChanged || skillEnlightenmentChanged || !deepEquals(from.attribute, to.attribute);
+    const armyChanged = fractionChanged || skillRecruitmentChanged || !deepEquals(from.army, to.army);
+    const skillChanged = fractionChanged || !deepEquals(from.skill, to.skill);
+    const inventoryChanged = fractionChanged || from.inventory !== to.inventory;
+
+    let serial = Promise.resolve();
+    if (fractionChanged) {
+      serial = serial.then(() => this._fraction(to.fraction))
+    }
+    if (skillChanged) {
+     serial = serial.then(() => this._skill(to.skill))
+    }
+    if (attributeChanged) {
+     serial = serial.then(() => this._attribute(to.attribute))
+    }
+    if (armyChanged) {
+     serial = serial.then(() => this._army(to.army))
+    }
+    if (inventoryChanged) {
+     serial = serial.then(() => this._inventory(to.inventory))
+    }
+    return serial.then(() => to);
+  }
+
+  _fraction(value) {
+    console.log('fraction', value);
+  }
+
+  _reset() {
+    console.log('reset');
+  }
+
+  _skill(value) {
+    console.log('skill', value);
+  }
+
+  _attribute(value) {
+    console.log('attribute', value);
+  }
+
+  _army(value) {
+    console.log('army', value);
+  }
+
+  _inventory(value) {
+    console.log('inventory', value);
+  }
+
+}
 
 class FractionService {
   
