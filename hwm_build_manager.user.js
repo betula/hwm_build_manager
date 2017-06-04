@@ -259,16 +259,18 @@ class ChangeService {
       serial = serial.then(() => this._fraction(to.fraction))
     }
     if (skillChanged) {
-     serial = serial.then(() => this._skill(to.skill))
+      serial = serial.then(() => this._skill(to.skill))
     }
     if (attributeChanged) {
-     serial = serial.then(() => this._attribute(to.attribute))
+      serial = serial
+        .then(() => this._reset())
+        .then(() => this._attribute(to.attribute))
     }
     if (armyChanged) {
-     serial = serial.then(() => this._army(to.army))
+      serial = serial.then(() => this._army(to.army))
     }
     if (inventoryChanged) {
-     serial = serial.then(() => this._inventory(to.inventory))
+      serial = serial.then(() => this._inventory(to.inventory))
     }
     return serial.then(() => to);
   }
