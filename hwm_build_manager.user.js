@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name        hwm_build_manager
-// @author      Betula (http://www.heroeswm.ru/pl_info.php?id=15091)
+// @author      Chie (http://www.heroeswm.ru/pl_info.php?id=645888)
+// @description Менеджер билдов для HWM
 // @namespace   https://github.com/betula/hwm_build_manager
 // @homepage    https://github.com/betula/hwm_build_manager
 // @include     http://*heroeswm.ru/*
 // @include     http://178.248.235.15/*
 // @include     http://*lordswm.com/*
 // @encoding    utf-8
-// @version     1
+// @version     1.0.0
 // @grant       none
 // @require     https://unpkg.com/mithril@1.1.1/mithril.min.js
 // ==/UserScript==
