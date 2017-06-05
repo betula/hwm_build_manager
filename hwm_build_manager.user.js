@@ -207,6 +207,9 @@ class CurrentService {
       .then((item) => {
         this._update(item);
         return item;
+      }, () => {
+        this._update();
+        return Promise.reject();
       });
   }
   
@@ -214,7 +217,7 @@ class CurrentService {
     return deepEquals(this._item, item);
   }
   
-  _update(item) {
+  _update(item = null) {
     this._item = item;
     this._store();
   }
@@ -231,28 +234,34 @@ class CurrentService {
 
 class ChangeService {
 
-  force(to) {
-    return Promise.resolve()
-      .then(() => this._fraction(to.fraction))
-      .then(() => this._skill(to.skill))
-      .then(() => this._reset())
-      .then(() => this._attribute(to.attribute))
-      .then(() => this._army(to.army))
-      .then(() => this._inventory(to.inventory))
-      .then(() => to);
+  constructor(services) {
+    this.services = services;
   }
 
-  diff(from, to) {
+  force(to) {
+    const promise = Promise.resolve()
+      .then(() => this._fraction(to.fraction))
+      .then(() => this._skill(to.skill))
+      .then(() => this._army(to.army))
+      .then(() => this._inventory(to.inventory))
+      .then(() => this._reset())
+      .then(() => this._attribute(to.attribute))
+      .then(() => to);
+      
+    return PromiseMDecorator(promise);
+  }
+
+  diff(from, to) {    
     const fractionChanged = from.fraction !== to.fraction;
     const skillRecruitmentChanged = from.skill.indexOf('recruitment') !== to.skill.indexOf('recruitment');
     const skillEnlightenmentChanged = [1, 2, 3].some((n) => {
       const name = `enlightenment${n}`;
       return from.skill.indexOf(name) !== to.skill.indexOf(name);
     });
-    const attributeChanged = fractionChanged || skillEnlightenmentChanged || !deepEquals(from.attribute, to.attribute);
-    const armyChanged = fractionChanged || skillRecruitmentChanged || !deepEquals(from.army, to.army);
     const skillChanged = fractionChanged || !deepEquals(from.skill, to.skill);
-    const inventoryChanged = fractionChanged || from.inventory !== to.inventory;
+    const armyChanged = fractionChanged || skillRecruitmentChanged || !deepEquals(from.army, to.army);
+    const inventoryChanged = from.inventory !== to.inventory;
+    const attributeChanged = skillEnlightenmentChanged || !deepEquals(from.attribute, to.attribute);
 
     let serial = Promise.resolve();
     if (fractionChanged) {
@@ -261,34 +270,57 @@ class ChangeService {
     if (skillChanged) {
       serial = serial.then(() => this._skill(to.skill))
     }
-    if (attributeChanged) {
-      serial = serial
-        .then(() => this._reset())
-        .then(() => this._attribute(to.attribute))
-    }
     if (armyChanged) {
       serial = serial.then(() => this._army(to.army))
     }
     if (inventoryChanged) {
       serial = serial.then(() => this._inventory(to.inventory))
     }
-    return serial.then(() => to);
+    if (attributeChanged) {
+      serial = serial
+        .then(() => this._reset())
+        .then(() => this._attribute(to.attribute))
+    }
+    serial = serial.then(() => to);
+    
+    return PromiseMDecorator(serial);
   }
 
-  _fraction(value) {
-    console.log('fraction', value);
-  }
+  _fraction(id) {
+    const fraction = this.services.fraction.map[id];
+    console.log('fraction', fraction);
 
-  _reset() {
-    console.log('reset');
+    const deserialize = () => {};
+
+    let data = new FormData();
+    data.append('fract', fraction.fract);
+
+    let serial = m.request({ 
+      method: 'POST', 
+      url: '/castle.php',
+      data,
+      deserialize
+    });
+
+    if (fraction.classid !== '0') {      
+      serial = serial.then(() => {
+        let data = new FormData();
+        data.append('classid', fraction.classid);
+
+        return m.request({
+          method: 'POST',
+          url: '/castle.php',
+          data,
+          deserialize
+        });
+      });
+    }
+
+    return serial;
   }
 
   _skill(value) {
     console.log('skill', value);
-  }
-
-  _attribute(value) {
-    console.log('attribute', value);
   }
 
   _army(value) {
@@ -297,6 +329,14 @@ class ChangeService {
 
   _inventory(value) {
     console.log('inventory', value);
+  }
+
+  _reset() {
+    console.log('reset');
+  }
+
+  _attribute(value) {
+    console.log('attribute', value);
   }
 
 }
@@ -1267,6 +1307,9 @@ styles(`
   border: 1px solid #f5c137;
   border-left: none;
 }
+.mb-selector__info-error {
+  color: red;
+}
 .mb-selector__triangle-box {
   background: #6b6b69;
   color: #f5c137;
@@ -1313,7 +1356,7 @@ styles(`
 .mb-selector__list-item:hover .mb-selector__list-item-name {
   text-decoration: underline;
 }
-.mb-selector__list-item--current .mb-selector__list-item-name {
+.mb-selector__list-item-name--current {
   color: rgb(255, 0, 0);
   text-decoration: underline;
   cursor: default;
@@ -1349,6 +1392,7 @@ class SelectorComponent {
     this.services = services;
     this.dropped = false;
     this.changing = false;
+    this.error = false;
   }
   
   oncreate({ dom }) {
@@ -1395,13 +1439,15 @@ class SelectorComponent {
       this.dropped = false;
       this.changing = true;
       
-      const finish = () => { 
-        this.changing = false 
-        m.redraw();
-      };
-      
       this.services.current.change(item, force)
-        .then(finish, finish);
+        .then(() => {
+          this.changing = false;
+          this.error = false;
+        }, (e) => {
+          console.error(e);
+          this.changing = false;
+          this.error = true;
+        });
     };
     
     const list = () => {
@@ -1410,8 +1456,12 @@ class SelectorComponent {
       const box = m('.mb-selector__list-box', [
         m('.mb-selector__list', 
           items.map((item) => {
-            return m('.mb-selector__list-item', { class: this.services.current.equals(item) ? 'mb-selector__list-item--current' : '' }, [
-              m('.mb-selector__list-item-name', { onclick: () => { selectAction(item) } }, item.name),
+            return m('.mb-selector__list-item', [
+              m('.mb-selector__list-item-name', 
+                this.services.current.equals(item) 
+                  ? { class: 'mb-selector__list-item-name--current' }
+                  : { onclick: () => { selectAction(item) } }, 
+                item.name),
               m('.mb-selector__list-item-force', { onclick: () => { selectAction(item, true) }}, '[*]')
             ])
           })),
@@ -1425,13 +1475,22 @@ class SelectorComponent {
     };
     
     const info = () => {
-      if (!this.changing && !current) return null;
+      if (!this.changing && !current && !this.error) return null;
       
-      return m('.mb-selector__info', [
-        this.changing 
-          ? 'Смена билда...' 
-          : [ this.services.current.isExpired() ? '*' : '', current.name ]
-      ]);
+      const text = () => {
+        if (this.changing) {
+          return 'Смена билда...'
+        } else if (this.error) {
+          return m('.mb-selector__info-error', 'Ошибка смены билда!')
+        } else {
+          return [
+            this.services.current.isExpired() ? '*' : '',
+            current.name
+          ]
+        }
+      };
+      
+      return m('.mb-selector__info', text());
     };
     
     return m('.mb-selector__box', [
@@ -1611,6 +1670,17 @@ class LocalStorageArrayDriver extends LocalStorageDriver {
     return data;    
   }
   
+}
+
+function PromiseMDecorator(promise) {
+  const proxyWithRedraw = (data) => {
+    setTimeout(m.redraw.bind(m));
+    return data;
+  }
+  return promise.then(
+    proxyWithRedraw, 
+    (data) => proxyWithRedraw(Promise.reject(data))
+  );
 }
 
 try {
