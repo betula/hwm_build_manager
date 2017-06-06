@@ -36,6 +36,7 @@ class ServiceContainer {
   get skill() { return this._service(SkillService) }
   get current() { return this._service(CurrentService) }
   get change() { return this._service(ChangeService) }
+  get import() { return this._service(ImportService) }
   
 }
 
@@ -265,7 +266,7 @@ class ChangeService {
 
     let serial = Promise.resolve();
     if (fractionChanged) {
-      serial = serial.then(() => this._fraction(to.fraction))
+      serial = serial.then(() => this._fraction(to.fraction, from.fraction))
     }
     if (skillChanged) {
       serial = serial.then(() => this._skill(to.skill))
@@ -286,45 +287,68 @@ class ChangeService {
     return PromiseMDecorator(serial);
   }
 
-  _fraction(id) {
-    const fraction = this.services.fraction.map[id];
-    console.log('fraction', fraction);
+  _fraction(to, from) {
+    to = this.services.fraction.map[to];
+    
+    let serial = Promise.resolve();
 
-    const deserialize = () => {};
+    if (from) {
+      from = this.services.fraction.map[from];
+    } else {
+      serial = this.services.import.getFraction()
+        .then((id) => {
+          from = this.services.fraction.map[id];
+        })
+    }
 
-    let data = new FormData();
-    data.append('fract', fraction.fract);
+    const changeFract = (id) => {
+      return this._httpRequest('FORM', '/castle.php', { fract: id })
+    }
+    const changeClassid = (id) => {
+      return this._httpRequest('FORM', '/castle.php', { classid: id })
+    }
 
-    let serial = m.request({ 
-      method: 'POST', 
-      url: '/castle.php',
-      data,
-      deserialize
-    });
-
-    if (fraction.classid !== '0') {      
+    if (from.fract !== to.fract) {
       serial = serial.then(() => {
-        let data = new FormData();
-        data.append('classid', fraction.classid);
-
-        return m.request({
-          method: 'POST',
-          url: '/castle.php',
-          data,
-          deserialize
+        return changeFract(to.fract)
+      });
+      if (to.classid !== '0') {
+        serial = serial.then(() => {
+          return changeClassid(to.classid)
         });
+      }
+    } else if (from.classid !== to.classid) {
+      serial = serial.then(() => {
+        return changeClassid(to.classid)
       });
     }
 
     return serial;
   }
 
-  _skill(value) {
-    console.log('skill', value);
+  _skill(list) {
+    let data = {
+      rand: Math.random(),
+      setstats: 1,
+    }
+
+    for (let i = 0; i < list.length; i++) {
+      data[`param${i}`] = list[i];
+    }
+
+    return this._httpRequest('FORM', '/skillwheel.php', data);
   }
 
-  _army(value) {
-    console.log('army', value);
+  _army(list) {
+    let data = {
+      rand: Math.random(),
+    }
+
+    for (let i = 0; i < list.length; i++) {
+      data[`countv${i+1}`] = list[i];
+    }
+
+    return this._httpRequest('FORM', '/army_apply.php', data);
   }
 
   _inventory(value) {
@@ -337,6 +361,156 @@ class ChangeService {
 
   _attribute(value) {
     console.log('attribute', value);
+  }
+
+  _httpRequest(method, url, data) {
+    if (method === 'FORM') {
+      let form = new FormData();
+      for (let key of Object.keys(data)) {
+        form.append(key, data[key]);
+      }
+      data = form;
+      method = 'POST';
+    }
+
+    return m.request({ method, url, data,
+      extract: ({ responseText }) => responseText
+    });
+  }
+
+}
+
+class ImportService {
+
+  constructor(services) {
+    this.services = services;
+  }
+
+  getInventoryNamesIfAvailable() {
+    if (location.pathname.match(/^\/inventory\.php/)) {
+      let list = [];
+      let nodes = document.querySelectorAll('a[href*="inventory.php?all_on"]');
+      for (let node of nodes) {
+        let [ _, type, value ] = node.getAttribute('href').match(/(all_on)=(\d)/);
+        let name = node.innerText;
+        list.push({
+          type,
+          value,
+          name
+        });
+      }
+      return list;
+    }
+  }
+
+  getArmy() {
+    return m.request({
+      method: 'GET',
+      url: '/army.php',
+      deserialize: (html) => {
+        let m = html.match(/\<param name="FlashVars" value="param=\d+\|M([^"]+)/);
+        if (!m) return null;
+        
+        let chunks = m[1].split(';M');
+        let items = [];
+
+        for (let chunk of chunks) {
+          items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
+        }
+        return items;
+      }
+    })
+  }
+
+  getFraction() {
+
+    return m.request({
+      method: 'GET',
+      url: '/castle.php',
+      deserialize: (html) => {
+        let dict = {};
+        for (let { fract, classid } of this.services.fraction.list) {
+          if (!dict[fract]) {
+            dict[fract] = {};
+          }
+          dict[fract][classid] = true;
+        }
+
+        const extractFract = () => {
+          let m = html.match(/\<select name='fract'((?:.|[\r\n])+?)\<\/select/);
+          if (!m) return null;
+
+          let available = {};
+          m[1].replace(/value=(\d)/g, (_, id) => {
+            available[id] = true;
+          });
+
+          for (let id of Object.keys(dict)) {
+            if (!available[id]) return id;
+          }
+        }
+
+        const extractClassid = (fract) => {
+          let m = html.match(/\<select name='classid'((?:.|[\r\n])+?)\<\/select/);
+          if (!m) return null;
+
+          let available = {};
+          m[1].replace(/value=(\d)/g, (_, id) => {
+            available[id] = true;
+          });
+
+          for (let id of Object.keys(dict[fract])) {
+            if (!available[id]) return id;
+          }
+        }
+
+        let fract = extractFract();
+        if (!fract) return null;
+
+        let classidList = Object.keys(dict[fract]);
+        let classid;
+
+        if (classidList.length === 1) {
+          classid = classidList[0];
+
+        } else {
+          classid = extractClassid(fract);
+          if (!classid) return null;
+        }
+
+        return `${fract}${classid}`
+
+      }
+    })
+  }
+
+  getSkill() {
+
+    return m.request({
+      method: 'GET',
+      url: '/skillwheel.php',
+      deserialize: (html) => {
+        let m = html.match(/\<param name="FlashVars" value='param=.+?;builds=([^']+)/);
+        if (!m) return null;
+        
+        let rows = m[1].split('$');
+        let items = [];
+
+        for (let r of rows) {
+          let row = r.split('|');
+          if (row.length != 10) continue;
+
+          let id = row[0];
+          let has = row[8];
+
+          if (has === '1') {
+            items.push(id);
+          }
+        }
+
+        return items;
+      }
+    })
   }
 
 }
@@ -380,7 +554,8 @@ class FractionService {
 
 class InventoryService {
   
-  constructor() {
+  constructor(services) {
+    this.services = services;
     this._storage = new LocalStorageArrayDriver('BM_INVENTORY');
     this.loaded = false;
     
@@ -414,25 +589,16 @@ class InventoryService {
     }
   }
   
-  importNames() {
-    if (location.pathname.match(/^\/inventory\.php/)) {
-      let list = [];
-      let nodes = document.querySelectorAll('a[href*="inventory.php?all_on"]');
-      for (let node of nodes) {
-        let [ _, type, value ] = node.getAttribute('href').match(/(all_on)=(\d)/);
-        let name = node.innerText;
-        list.push({
-          type,
-          value,
-          name
-        });
-        
+  syncNamesIfAvailable() {
+    let list = this.services.import.getInventoryNamesIfAvailable();
+    if (list) {
+      for (let { type, value, name } of list) {
         let id = type + value;
         if (this.map[id]) {
           this.map[id].name = name;
-        }
+        }    
       }
-      this._storage.put(list); 
+      this._storage.put(list);
     }
   }
   
@@ -467,26 +633,6 @@ class ArmyService {
   
   get default() {
     return [ 0, 0, 0, 0, 0, 0, 0 ]
-  }
-  
-  getImportPromise() {
-
-    return m.request({
-      method: 'GET',
-      url: '/army.php',
-      deserialize: (html) => {
-        let m = html.match(/\<param name="FlashVars" value="param=\d+\|M([^"]+)/);
-        if (!m) return null;
-        
-        let chunks = m[1].split(';M');
-        let items = [];
-
-        for (let chunk of chunks) {
-          items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
-        }
-        return items;
-      }
-    })
   }
   
 }
@@ -616,35 +762,6 @@ class SkillService {
     return [];
   }
   
-  getImportPromise() {
-
-    return m.request({
-      method: 'GET',
-      url: '/skillwheel.php',
-      deserialize: (html) => {
-        let m = html.match(/\<param name="FlashVars" value='param=.+?;builds=([^']+)/);
-        if (!m) return null;
-        
-        let rows = m[1].split('$');
-        let items = [];
-
-        for (let r of rows) {
-          let row = r.split('|');
-          if (row.length != 10) continue;
-
-          let id = row[0];
-          let has = row[8];
-
-          if (has === '1') {
-            items.push(id);
-          }
-        }
-
-        return items;
-      }
-    })
-  }
-  
 }
 
 
@@ -682,6 +799,25 @@ styles(`
   display: inline-block;
   width: 110px;
 }
+.mb-editor-fraction__import-button {
+  display: inline-block;
+  margin-left: 4px;
+  cursor: pointer;
+}
+.mb-editor-fraction__import-button:hover {
+  text-decoration: underline;
+}
+.mb-editor-fraction__import-button--importing {
+  animation: mb-fraction-import-animation 1s infinite linear;
+  cursor: wait;
+}
+.mb-editor-fraction__import-button--importing:hover {
+  text-decoration: none;
+}
+@keyframes mb-fraction-import-animation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(359deg); }
+}
 `);
 class EditorFractionComponent {
   
@@ -691,6 +827,26 @@ class EditorFractionComponent {
 
   view({ attrs: { value, onchange } }) {
 
+    const importAction = () => {
+      if (this.importing) return;
+      
+      this.importing = true;
+      
+      const finish = () => { this.importing = false };
+      
+      this.services.import.getFraction()
+        .then((val) => {
+          if (val) {
+            onchange(val);
+          }
+        })
+        .then(finish, finish);
+    };
+
+    const importButton = () => {
+      return m('.mb-editor-fraction__import-button', { onclick: importAction, class: this.importing ? 'mb-editor-fraction__import-button--importing' : '' }, '<')
+    };
+
     return m('.mb-editor-fraction__box', [
       m('.mb-editor-fraction__block', [
         m('.mb-editor-fraction__block-label', 'Фракция:'),
@@ -698,7 +854,8 @@ class EditorFractionComponent {
           { oninput: m.withAttr('value', onchange), value: value },
           this.services.fraction.list.map(({ id, name }) => {
             return m('option', { key: id, value: id }, name);
-          }))
+          })),
+        importButton()
       ])
     ])
   }
@@ -833,7 +990,7 @@ class EditorArmyComponent {
       
       const finish = () => { this.importing = false };
       
-      this.services.army.getImportPromise()
+      this.services.import.getArmy()
         .then((val) => {
           if (val) {
             onchange(val);
@@ -922,7 +1079,7 @@ class EditorSkillComponent {
       
       const finish = () => { this.importing = false };
       
-      this.services.skill.getImportPromise()
+      this.services.import.getSkill()
         .then((val) => {
           if (val) {
             onchange(val);
@@ -1524,7 +1681,7 @@ class AppComponent {
     this.manager = false;
     this.services = new ServiceContainer();
     
-    this.services.inventory.importNames();
+    this.services.inventory.syncNamesIfAvailable();
   }
   
   view() {
