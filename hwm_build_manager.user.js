@@ -255,15 +255,10 @@ class ChangeService {
 
   diff(from, to) {    
     const fractionChanged = from.fraction !== to.fraction;
-    const skillRecruitmentChanged = from.skill.indexOf('recruitment') !== to.skill.indexOf('recruitment');
-    const skillEnlightenmentChanged = [1, 2, 3].some((n) => {
-      const name = `enlightenment${n}`;
-      return from.skill.indexOf(name) !== to.skill.indexOf(name);
-    });
     const skillChanged = fractionChanged || !deepEquals(from.skill, to.skill);
-    const armyChanged = fractionChanged || skillRecruitmentChanged || !deepEquals(from.army, to.army);
+    const armyChanged = fractionChanged || !deepEquals(from.army, to.army);
     const inventoryChanged = from.inventory !== to.inventory;
-    const attributeChanged = skillEnlightenmentChanged || !deepEquals(from.attribute, to.attribute);
+    const attributeChanged = !deepEquals(from.attribute, to.attribute);
 
     let serial = Promise.resolve();
     if (fractionChanged) {
@@ -386,8 +381,26 @@ class ChangeService {
     return buyTube().then(drinkTube);
   }
 
-  _attribute(value) {
-    console.log('attribute', value);
+  _attribute(obj) {
+    let gt = Math.max(...Object.values(obj));
+    let serial = Promise.resolve();
+
+    let all;
+    for (let name of Object.keys(obj)) {
+      let count = obj[name];
+      if (!all && count === gt) {
+        all = name;
+        continue;
+      }
+      for (let i = 0; i < count; i++) {
+        serial = serial.then(() => httpPlainRequest('GET', `/home.php?increase=${name}`));
+      }
+    }
+
+    if (all) {
+      serial = serial.then(() => httpPlainRequest('GET', `/home.php?increase_all=${all}`));
+    }
+    return serial;
   }
 
 }
