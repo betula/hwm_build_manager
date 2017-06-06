@@ -237,6 +237,7 @@ class ChangeService {
 
   constructor(services) {
     this.services = services;
+    this.cache = {};
   }
 
   force(to) {
@@ -290,40 +291,37 @@ class ChangeService {
   _fraction(to, from) {
     to = this.services.fraction.map[to];
     
-    let serial = Promise.resolve();
+    let prepare = Promise.resolve();
 
     if (from) {
       from = this.services.fraction.map[from];
     } else {
-      serial = this.services.import.getFraction()
-        .then((id) => {
-          from = this.services.fraction.map[id];
-        })
+      prepare = this.services.import.getFraction().then((id) => {
+        from = this.services.fraction.map[id];
+      })
     }
 
-    const changeFract = (id) => {
-      return this._httpRequest('FORM', '/castle.php', { fract: id })
-    }
-    const changeClassid = (id) => {
-      return this._httpRequest('FORM', '/castle.php', { classid: id })
+    const change = (data) => {
+      return httpPlainRequest('FORM', '/castle.php', data)
     }
 
-    if (from.fract !== to.fract) {
-      serial = serial.then(() => {
-        return changeFract(to.fract)
-      });
-      if (to.classid !== '0') {
-        serial = serial.then(() => {
-          return changeClassid(to.classid)
-        });
+    return prepare.then(() => {
+
+      if (from.fract !== to.fract) {
+        let promise = change({ fract: to.fract });
+        if (to.classid !== '0') {
+          return promise.then(() => {
+            return change({ classid: to.classid })
+          });
+        }
+        return promise
       }
-    } else if (from.classid !== to.classid) {
-      serial = serial.then(() => {
-        return changeClassid(to.classid)
-      });
-    }
 
-    return serial;
+      if (from.classid !== to.classid) {
+        return change({ classid: to.classid })
+      }
+
+    })
   }
 
   _skill(list) {
@@ -336,7 +334,7 @@ class ChangeService {
       data[`param${i}`] = list[i];
     }
 
-    return this._httpRequest('FORM', '/skillwheel.php', data);
+    return httpPlainRequest('FORM', '/skillwheel.php', data);
   }
 
   _army(list) {
@@ -348,34 +346,48 @@ class ChangeService {
       data[`countv${i+1}`] = list[i];
     }
 
-    return this._httpRequest('FORM', '/army_apply.php', data);
+    return httpPlainRequest('FORM', '/army_apply.php', data);
   }
 
-  _inventory(value) {
-    console.log('inventory', value);
+  _inventory(id) {
+    let struct = this.services.inventory.map[id];
+    let data = {
+      r: Date.now() + String(Math.random()).slice(2)
+    };
+    data[struct.type] = struct.value;
+    return httpPlainRequest('GET', '/inventory.php', data);
   }
 
   _reset() {
-    console.log('reset');
+
+    const buyTube = () => {
+      let resetTubeUrl = Promise.resolve(this.cache.resetTubeUrl);
+
+      if (!this.cache.resetTubeUrl) {
+        resetTubeUrl = httpPlainRequest('GET', '/shop.php', { cat: 'potions' }).then((html) => {
+          let m = html.match(/\/shop\.php\?b=reset_tube&cat=potions&sign=[0-9a-f]+/);
+          if (!m) return null;
+          return this.cache.resetTubeUrl = m[0];
+        })
+      }
+
+      return resetTubeUrl.then((url) => httpPlainRequest('GET', url));
+    }
+
+    const drinkTube = () => {
+      return httpPlainRequest('GET', '/inventory.php').then((html) => {
+        let m = html.match(/\<a href='art_info\.php\?id=reset_tube'.+?change_star1\((\d+)/);
+        if (!m) return null;
+
+        return httpPlainRequest('GET', '/inventory.php', { dress: m[1] })
+      })
+    }
+
+    return buyTube().then(drinkTube);
   }
 
   _attribute(value) {
     console.log('attribute', value);
-  }
-
-  _httpRequest(method, url, data) {
-    if (method === 'FORM') {
-      let form = new FormData();
-      for (let key of Object.keys(data)) {
-        form.append(key, data[key]);
-      }
-      data = form;
-      method = 'POST';
-    }
-
-    return m.request({ method, url, data,
-      extract: ({ responseText }) => responseText
-    });
   }
 
 }
@@ -404,112 +416,97 @@ class ImportService {
   }
 
   getArmy() {
-    return m.request({
-      method: 'GET',
-      url: '/army.php',
-      deserialize: (html) => {
-        let m = html.match(/\<param name="FlashVars" value="param=\d+\|M([^"]+)/);
-        if (!m) return null;
-        
-        let chunks = m[1].split(';M');
-        let items = [];
+    return httpPlainRequest('GET', '/army.php').then((html) => {
+      let m = html.match(/\<param name="FlashVars" value="param=\d+\|M([^"]+)/);
+      if (!m) return null;
+      
+      let chunks = m[1].split(';M');
+      let items = [];
 
-        for (let chunk of chunks) {
-          items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
-        }
-        return items;
+      for (let chunk of chunks) {
+        items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
       }
-    })
+      return items;
+    });
   }
 
   getFraction() {
-
-    return m.request({
-      method: 'GET',
-      url: '/castle.php',
-      deserialize: (html) => {
-        let dict = {};
-        for (let { fract, classid } of this.services.fraction.list) {
-          if (!dict[fract]) {
-            dict[fract] = {};
-          }
-          dict[fract][classid] = true;
+    return httpPlainRequest('GET', '/castle.php').then((html) => {
+      let dict = {};
+      for (let { fract, classid } of this.services.fraction.list) {
+        if (!dict[fract]) {
+          dict[fract] = {};
         }
-
-        const extractFract = () => {
-          let m = html.match(/\<select name='fract'((?:.|[\r\n])+?)\<\/select/);
-          if (!m) return null;
-
-          let available = {};
-          m[1].replace(/value=(\d)/g, (_, id) => {
-            available[id] = true;
-          });
-
-          for (let id of Object.keys(dict)) {
-            if (!available[id]) return id;
-          }
-        }
-
-        const extractClassid = (fract) => {
-          let m = html.match(/\<select name='classid'((?:.|[\r\n])+?)\<\/select/);
-          if (!m) return null;
-
-          let available = {};
-          m[1].replace(/value=(\d)/g, (_, id) => {
-            available[id] = true;
-          });
-
-          for (let id of Object.keys(dict[fract])) {
-            if (!available[id]) return id;
-          }
-        }
-
-        let fract = extractFract();
-        if (!fract) return null;
-
-        let classidList = Object.keys(dict[fract]);
-        let classid;
-
-        if (classidList.length === 1) {
-          classid = classidList[0];
-
-        } else {
-          classid = extractClassid(fract);
-          if (!classid) return null;
-        }
-
-        return `${fract}${classid}`
-
+        dict[fract][classid] = true;
       }
+
+      const extractFract = () => {
+        let m = html.match(/\<select name='fract'((?:.|[\r\n])+?)\<\/select/);
+        if (!m) return null;
+
+        let available = {};
+        m[1].replace(/value=(\d)/g, (_, id) => {
+          available[id] = true;
+        });
+
+        for (let id of Object.keys(dict)) {
+          if (!available[id]) return id;
+        }
+      }
+
+      const extractClassid = (fract) => {
+        let m = html.match(/\<select name='classid'((?:.|[\r\n])+?)\<\/select/);
+        if (!m) return null;
+
+        let available = {};
+        m[1].replace(/value=(\d)/g, (_, id) => {
+          available[id] = true;
+        });
+
+        for (let id of Object.keys(dict[fract])) {
+          if (!available[id]) return id;
+        }
+      }
+
+      let fract = extractFract();
+      if (!fract) return null;
+
+      let classidList = Object.keys(dict[fract]);
+      let classid;
+
+      if (classidList.length === 1) {
+        classid = classidList[0];
+
+      } else {
+        classid = extractClassid(fract);
+        if (!classid) return null;
+      }
+
+      return `${fract}${classid}`
     })
   }
 
   getSkill() {
+    return httpPlainRequest('GET', '/skillwheel.php').then((html) => {
+      let m = html.match(/\<param name="FlashVars" value='param=.+?;builds=([^']+)/);
+      if (!m) return null;
+      
+      let rows = m[1].split('$');
+      let items = [];
 
-    return m.request({
-      method: 'GET',
-      url: '/skillwheel.php',
-      deserialize: (html) => {
-        let m = html.match(/\<param name="FlashVars" value='param=.+?;builds=([^']+)/);
-        if (!m) return null;
-        
-        let rows = m[1].split('$');
-        let items = [];
+      for (let r of rows) {
+        let row = r.split('|');
+        if (row.length != 10) continue;
 
-        for (let r of rows) {
-          let row = r.split('|');
-          if (row.length != 10) continue;
+        let id = row[0];
+        let has = row[8];
 
-          let id = row[0];
-          let has = row[8];
-
-          if (has === '1') {
-            items.push(id);
-          }
+        if (has === '1') {
+          items.push(id);
         }
-
-        return items;
       }
+
+      return items;
     })
   }
 
@@ -1838,6 +1835,21 @@ function PromiseMDecorator(promise) {
     proxyWithRedraw, 
     (data) => proxyWithRedraw(Promise.reject(data))
   );
+}
+
+function httpPlainRequest(method, url, data) {
+  if (method === 'FORM') {
+    let form = new FormData();
+    for (let key of Object.keys(data)) {
+      form.append(key, data[key]);
+    }
+    data = form;
+    method = 'POST';
+  }
+
+  return m.request({ method, url, data,
+    extract: ({ responseText }) => responseText
+  });
 }
 
 try {
