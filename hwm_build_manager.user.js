@@ -1749,9 +1749,6 @@ function uniqid() {
 
 function deepCopy(value) {
   if (!value) return value;
-  if (value instanceof Date) {
-    return new Date(value.getTime());
-  }
   if (value instanceof Array) {
     return value.map(deepCopy);
   }
@@ -1767,9 +1764,6 @@ function deepCopy(value) {
 
 function deepEquals(a, b) {
   if (a === b) return true;
-  if (a instanceof Date && b instanceof Date) {
-    return a.getTime() === b.getTime();
-  }
   if (a instanceof Array && b instanceof Array) {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
