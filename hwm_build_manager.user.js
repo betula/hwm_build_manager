@@ -382,25 +382,63 @@ class ChangeService {
   }
 
   _attribute(obj) {
-    let gt = Math.max(...Object.values(obj));
-    let serial = Promise.resolve();
 
-    let all;
-    for (let name of Object.keys(obj)) {
-      let count = obj[name];
-      if (!all && count === gt) {
-        all = name;
-        continue;
-      }
+    const getTotal = () => {
+      return httpPlainRequest('GET', '/home.php').then((html) => {
+        let m = html.match(/href="home\.php\?increase_all=knowledge".*?(\d+)\<\/td/);
+        if (!m) return null;
+        return parseInt(m[1]) || null;
+      });
+    }
+
+    const increase = (name, count) => {
+      let serial = Promise.resolve();
       for (let i = 0; i < count; i++) {
         serial = serial.then(() => httpPlainRequest('GET', `/home.php?increase=${name}`));
       }
+      return serial;
     }
 
-    if (all) {
-      serial = serial.then(() => httpPlainRequest('GET', `/home.php?increase_all=${all}`));
+    const increaseAll = (name) => {
+      return httpPlainRequest('GET', `/home.php?increase_all=${name}`);
     }
-    return serial;
+
+    const distribute = (total) => {
+      total = total || 0;
+
+      let list = [];
+      for (let name of Object.keys(obj)) {
+        list.push({ name, value: obj[name] })
+      }
+      list.sort((a, b) => a.value - b.value);
+
+      let serial = Promise.resolve();
+
+      let used = 0;
+      list.slice(0, -1).forEach(({ name, value }) => {
+        if (used >= total) return;
+        if (value === 0) return;
+
+        let v = Math.min(total - used, value);
+        used += value;
+        serial = serial.then(() => increase(name, v));
+      });
+
+      if (total > used) {
+        let { name, value } = list[ list.length - 1 ];
+        if (value > 0) {
+          if (value < total - used) {
+            serial = serial.then(() => increase(name, value)); 
+          } else {
+            serial = serial.then(() => increaseAll(name));
+          } 
+        }       
+      }
+
+      return serial;      
+    }
+
+    return getTotal().then(distribute);
   }
 
 }
