@@ -1368,6 +1368,8 @@ class ManagerComponent {
     this.services = services;
     
     this._initSelected();
+    this.exportPopup = true;
+    this.importPopup = true;
   }
   
   _initSelected() {
@@ -1426,10 +1428,10 @@ class ManagerComponent {
         );
 
         if (this.selected) {
-          controls.push([
+          controls.push(
             m('.mb-manager__header-button', { onclick: this.duplicateSelected.bind(this) }, 'Копия'),
             m('.mb-manager__header-button', { onclick: this.removeSelected.bind(this) }, 'Удалить')
-          ])
+          )
         }
       }
       
@@ -1437,14 +1439,23 @@ class ManagerComponent {
     };
     
     const headerRight = () => {
-      return m('.mb-manager__header-right', [
-        this.services.manager.items 
-          ? m('.mb-manager__header-button', { onclick: () => {} }, 'Экспорт')
-          : null,
-        m('.mb-manager__header-button', { onclick: () => {} }, 'Импорт'),
-        m('.mb-manager__header-space'),
+      let controls = [];
+      if (!this.confirmRemove) {
+        if (this.services.manager.items.length > 0) {
+          controls.push(
+            m('.mb-manager__header-button', { onclick: () => { this.exportPopup = true } }, 'Экспорт')
+          )
+        }
+        controls.push(
+          m('.mb-manager__header-button', { onclick: () => { this.importPopup = true } }, 'Импорт'),
+          m('.mb-manager__header-space')
+        )
+      }
+      controls.push(
         m('.mb-manager__header-button', { onclick: closeAction }, 'Закрыть')
-      ]);
+      )
+
+      return m('.mb-manager__header-right', controls);
     };
     
     const confirmRemove = () => {
@@ -1593,40 +1604,14 @@ styles(`
   text-decoration: underline;
 }
 `);
-class SelectorComponent {
+const SelectorComponent = DroppedMixin(class {
   
   constructor({ attrs: { services }}) {
     this.services = services;
     this.dropped = false;
     this.changing = false;
     this.error = false;
-  }
-  
-  oncreate({ dom }) {
-    const listener = (event) => {
-      if (!this.dropped) return;
-      
-      let node = event.target;
-      while(node && node.className) {
-        if (node === dom) {
-          return;
-        }
-        node = node.parentNode;
-      }
-      
-      this.dropped = false;
-      m.redraw();
-    };
-    
-    const body = document.body;
-    body.addEventListener('click', listener);
-    this.releaseBodyClickEvent = () => {
-      body.removeEventListener('click', listener);
-    }
-  }
-  
-  onbeforeremove() {
-    this.releaseBodyClickEvent();
+
   }
   
   drop() {
@@ -1710,7 +1695,7 @@ class SelectorComponent {
     ])
   }
   
-}
+})
 
 
 styles(`
@@ -1747,6 +1732,42 @@ class AppComponent {
         : null
     ]);
   }
+}
+
+function DroppedMixin(Component) {
+
+  Object.assign(Component.prototype, {
+
+    oncreate({ dom }) {
+      const listener = (event) => {
+        if (!this.dropped) return;
+        
+        let node = event.target;
+        while(node && node.className) {
+          if (node === dom) {
+            return;
+          }
+          node = node.parentNode;
+        }
+        
+        this.dropped = false;
+        m.redraw();
+      };
+      
+      const body = document.body;
+      body.addEventListener('click', listener);
+      this.releaseBodyClickEvent = () => {
+        body.removeEventListener('click', listener);
+      }
+    },
+    
+    onbeforeremove() {
+      this.releaseBodyClickEvent();
+    }
+
+  });
+
+  return Component;
 }
 
 
