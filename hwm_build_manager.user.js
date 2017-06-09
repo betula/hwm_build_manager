@@ -1196,6 +1196,7 @@ styles(`
 }
 .mb-editor__close-button {
   cursor: pointer;
+  display: inline-block;
 }
 .mb-editor__save-button:hover, 
 .mb-editor__cancel-button:hover,
@@ -1238,13 +1239,17 @@ class EditorComponent {
     }
     
     const buttons = () => {
+      let controls;
       if (deepEquals(this.item, originItem)) {
-        return m('.mb-editor__close-button', { onclick: closeAction }, 'Закрыть');
+        controls =  m('.mb-editor__close-button', { onclick: closeAction }, 'Закрыть');
+
+      } else {
+        controls = [
+          m('.mb-editor__save-button', { onclick: () => { onchange(item) }}, 'Сохранить'),
+          m('.mb-editor__cancel-button', { onclick: this.cancel.bind(this) }, 'Отменить')
+        ];
       }
-      return [
-        m('.mb-editor__save-button', { onclick: () => { onchange(item) }}, 'Сохранить'),
-        m('.mb-editor__cancel-button', { onclick: this.cancel.bind(this) }, 'Отменить')
-      ];
+      return m('.mb-editor__buttons', controls);
     };
     
     
@@ -1261,7 +1266,7 @@ class EditorComponent {
           m(EditorSkillComponent, { services, value: item.skill, onchange: (value) => { item.skill = value } }),          
         ])
       ]),
-      m('.mb-editor__buttons', buttons())
+      buttons()
     ])
   }
   
@@ -1298,6 +1303,10 @@ styles(`
 }
 .mb-manager__header-button:hover {
   text-decoration: underline;
+}
+.mb-manager__header-space {
+  width: 20px;
+  display: inline-block;
 }
 .mb-manager__list {
   max-height: 72px;
@@ -1413,19 +1422,13 @@ class ManagerComponent {
       
       if (!this.confirmRemove) {
         controls.push(
-          m('.mb-manager__header-button', 
-            { onclick: this.createNew.bind(this) },
-            'Новый')
+          m('.mb-manager__header-button', { onclick: this.createNew.bind(this) }, 'Новый')
         );
 
         if (this.selected) {
           controls.push([
-            m('.mb-manager__header-button', 
-              { onclick: this.duplicateSelected.bind(this) },
-              'Копия'),
-            m('.mb-manager__header-button', 
-              { onclick: this.removeSelected.bind(this) },
-              'Удалить')
+            m('.mb-manager__header-button', { onclick: this.duplicateSelected.bind(this) }, 'Копия'),
+            m('.mb-manager__header-button', { onclick: this.removeSelected.bind(this) }, 'Удалить')
           ])
         }
       }
@@ -1435,9 +1438,12 @@ class ManagerComponent {
     
     const headerRight = () => {
       return m('.mb-manager__header-right', [
-        m('.mb-manager__header-button',
-          { onclick: closeAction },
-          'Закрыть')
+        this.services.manager.items 
+          ? m('.mb-manager__header-button', { onclick: () => {} }, 'Экспорт')
+          : null,
+        m('.mb-manager__header-button', { onclick: () => {} }, 'Импорт'),
+        m('.mb-manager__header-space'),
+        m('.mb-manager__header-button', { onclick: closeAction }, 'Закрыть')
       ]);
     };
     
@@ -1448,12 +1454,8 @@ class ManagerComponent {
           `Удалить "${this.selected.name}"?`
         ]),
         m('.mb-manager__confirm-remove-buttons', [
-          m('.mb-manager__confirm-remove-button.mb-manager__confirm-remove-button--no', 
-            { onclick: this.confirmRemoveCancel.bind(this) },
-            'Нет'),
-          m('.mb-manager__confirm-remove-button', 
-            { onclick: this.confirmRemoveOk.bind(this) },
-            'Да')
+          m('.mb-manager__confirm-remove-button.mb-manager__confirm-remove-button--no', { onclick: this.confirmRemoveCancel.bind(this) }, 'Нет'),
+          m('.mb-manager__confirm-remove-button', { onclick: this.confirmRemoveOk.bind(this) }, 'Да')
         ]),
       ])
     };
