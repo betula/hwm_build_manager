@@ -130,6 +130,81 @@ class ManagerService {
       founded: false
     }
   }
+
+  serialize() {
+    return JSON.stringify(this.items);
+  }
+
+
+  unserialize(value) {
+    const INVALID = 'invalid';
+
+    const Checker = {
+      string(value) {
+        if (typeof value !== 'string' || value.length === 0) throw INVALID;
+      },
+      number(value) {
+        if (typeof value !== 'number') throw INVALID;
+      },
+      array(value) {
+        if (!Array.isArray(value)) throw INVALID;
+      },
+      object(value) {
+        if (!value || typeof value !== 'object') throw INVALID;
+      },
+      keys(value, keys) {
+        if (!keys.every({}.hasOwnProperty.bind(value))) throw INVALID;
+        for (let key of Object.keys(value)) {
+          Checker.enum(key, keys);
+        }
+      },
+      enum(value, values) {
+        if (Array.isArray(values)) {
+          if (values.indexOf(value) === -1) throw INVALID;
+        } else {
+          if (!values.hasOwnProperty(value)) throw INVALID;
+        }
+      },
+      length(value, len) {
+        if (value.length !== len) throw INVALID;
+      }
+
+    };
+
+    try {
+      const items = JSON.parse(value);
+      Checker.array(items);
+
+      for (let item of items) {
+        Checker.object(item);
+        Checker.keys(item, [ 'id', 'name', 'fraction', 'inventory', 'attribute', 'army', 'skill' ]);
+
+        let { id, name, fraction, inventory, attribute, army, skill } = item;
+
+        Checker.string(id);
+        Checker.string(name);
+        Checker.enum(fraction, this.services.fraction.map);
+        Checker.enum(inventory, this.services.inventory.map);
+
+        Checker.object(attribute);
+        Checker.keys(attribute, this.services.attribute.list);
+        Object.values(attribute).forEach(Checker.number);
+
+        Checker.array(army);
+        Checker.length(army, 7);
+        army.forEach(Checker.number);
+
+        Checker.enum(skill, this.services.skill.map);
+      }
+
+    } catch(e) {
+      return false;
+    }
+
+    this.items = items;
+    this._store();
+    return true;
+  }
   
   _searchById(id) {
     const items = this.items;
@@ -1273,6 +1348,146 @@ class EditorComponent {
 }
 
 
+
+
+styles(`
+.mb-export-popup__box {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border: 1px #5D413A solid;
+}
+.mb-export-popup__header {
+  background: #F5F3EA;
+  border-bottom: 1px #5D413A solid;
+  text-align: right;
+}
+.mb-export-popup__close-button {
+  display: inline-block;
+  cursor: pointer;
+  color: rgb(89, 44, 8);
+  padding: 4px 6px;
+}
+.mb-export-popup__close-button:hover {
+  text-decoration: underline;
+}
+.mb-export-popup__body {  
+  background: #fff;
+}
+.mb-export-popup__body textarea {
+  resize: none;
+  box-sizing: border-box;
+  width: 580px;
+  height: 300px;
+  font-size: 11px;
+  padding: 3px 5px;
+  margin: 0;
+  border: none;
+}
+.mb-export-popup__footer {
+  padding: 3px 5px 4px 5px;
+  border-top: 1px #5D413A solid;
+  background: #F5F3EA;
+  height: 16px;
+}
+`);
+class ExportPopup {
+  
+  constructor({ attrs: { services }}) {
+    this.services = services;
+  }
+
+  oncreate({ dom, attrs: { onclose } }) {
+    this.releaseClickOutEventListener = nextTickAddClickOutEventListener(dom, onclose);
+  }
+  
+  onbeforeremove() {
+    this.releaseClickOutEventListener();
+  }
+
+  view({ attrs: { onclose }}) {
+    return m('.mb-export-popup__box', [
+      m('.mb-export-popup__header', [
+        m('.mb-export-popup__close-button', { onclick: onclose }, 'Закрыть')
+      ]),
+      m('.mb-export-popup__body', [
+        m('textarea', { readonly: true, value: this.services.manager.serialize() })
+      ]),
+      m('.mb-export-popup__footer')
+    ])
+  }
+
+};
+
+styles(`
+.mb-import-popup__box {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border: 1px #5D413A solid;
+}
+.mb-import-popup__header {
+  background: #F5F3EA;
+  border-bottom: 1px #5D413A solid;
+  text-align: right;
+}
+.mb-import-popup__close-button {
+  display: inline-block;
+  cursor: pointer;
+  color: rgb(89, 44, 8);
+  padding: 4px 6px;
+}
+.mb-import-popup__close-button:hover {
+  text-decoration: underline;
+}
+.mb-import-popup__body {  
+  background: #fff;
+}
+.mb-import-popup__body textarea {
+  resize: none;
+  box-sizing: border-box;
+  width: 580px;
+  height: 300px;
+  font-size: 11px;
+  padding: 3px 5px;
+  margin: 0;
+  border: none;
+}
+.mb-import-popup__footer {
+  padding: 3px 5px 4px 5px;
+  border-top: 1px #5D413A solid;
+  background: #F5F3EA;
+  height: 16px;
+}
+`);
+class ImportPopup {
+
+  constructor({ attrs: { services }}) {
+    this.services = services;
+  }
+
+  oncreate({ dom, attrs: { onclose } }) {
+    this.releaseClickOutEventListener = nextTickAddClickOutEventListener(dom, onclose);
+  }
+  
+  onbeforeremove() {
+    this.releaseClickOutEventListener();
+  }
+
+  view({ attrs: { onclose }}) {
+    return m('.mb-import-popup__box', [
+      m('.mb-import-popup__header', [
+        m('.mb-import-popup__close-button', { onclick: onclose }, 'Закрыть')
+      ]),
+      m('.mb-import-popup__body', [
+        m('textarea')
+      ]),
+      m('.mb-import-popup__footer')
+    ])
+  }
+
+};
+
 styles(`
 .mb-manager__box {
   width: 650px;
@@ -1368,8 +1583,8 @@ class ManagerComponent {
     this.services = services;
     
     this._initSelected();
-    this.exportPopup = true;
-    this.importPopup = true;
+    this.exportPopup = false;
+    this.importPopup = false;
   }
   
   _initSelected() {
@@ -1496,6 +1711,18 @@ class ManagerComponent {
       ]);
     };
     
+    const popups = () => {
+      if (this.confirmRemove) return null;
+
+      return [
+        this.exportPopup 
+          ? m(ExportPopup, { services: this.services, onclose: () => { this.exportPopup = false }})
+          : null,
+        this.importPopup
+          ? m(ImportPopup, { services: this.services, onclose: () => { this.importPopup = false }})
+          : null
+      ]
+    }
     
     return m('.mb-manager__box', [
       m('.mb-manager__header', [
@@ -1504,7 +1731,8 @@ class ManagerComponent {
       ]),
       confirmRemove(),
       list(),
-      body()
+      body(),
+      popups(),
     ])
   }
 }
@@ -1604,7 +1832,7 @@ styles(`
   text-decoration: underline;
 }
 `);
-const SelectorComponent = DroppedMixin(class {
+class SelectorComponent {
   
   constructor({ attrs: { services }}) {
     this.services = services;
@@ -1613,7 +1841,17 @@ const SelectorComponent = DroppedMixin(class {
     this.error = false;
 
   }
+
+  oncreate({ dom }) {
+    this.releaseClickOutEventListener = addClickOutEventListener(dom, () => {
+      this.dropped = false;
+    });
+  }
   
+  onbeforeremove() {
+    this.releaseClickOutEventListener();
+  }
+
   drop() {
     if (this.changing) return;
     this.dropped = !this.dropped;
@@ -1695,7 +1933,7 @@ const SelectorComponent = DroppedMixin(class {
     ])
   }
   
-})
+}
 
 
 styles(`
@@ -1732,42 +1970,6 @@ class AppComponent {
         : null
     ]);
   }
-}
-
-function DroppedMixin(Component) {
-
-  Object.assign(Component.prototype, {
-
-    oncreate({ dom }) {
-      const listener = (event) => {
-        if (!this.dropped) return;
-        
-        let node = event.target;
-        while(node && node.className) {
-          if (node === dom) {
-            return;
-          }
-          node = node.parentNode;
-        }
-        
-        this.dropped = false;
-        m.redraw();
-      };
-      
-      const body = document.body;
-      body.addEventListener('click', listener);
-      this.releaseBodyClickEvent = () => {
-        body.removeEventListener('click', listener);
-      }
-    },
-    
-    onbeforeremove() {
-      this.releaseBodyClickEvent();
-    }
-
-  });
-
-  return Component;
 }
 
 
@@ -1856,6 +2058,42 @@ function deepEquals(a, b) {
     return true;
   }
   return false;
+}
+
+function addClickOutEventListener(dom, fn) {
+  const listener = (event) => {    
+    let node = event.target;
+    while(node && node.parentNode) {
+      if (node === dom) {
+        return;
+      }
+      node = node.parentNode;
+    }
+    
+    fn();
+    m.redraw();
+  };
+  
+  const body = document.body;
+  body.addEventListener('click', listener);
+  return () => {
+    body.removeEventListener('click', listener);
+  }
+  
+}
+
+function nextTickAddClickOutEventListener(dom, fn) {
+
+  let releaseEventListener = null;
+  let timeout = setTimeout(() => {
+    timeout = null;
+    releaseEventListener = addClickOutEventListener(dom, fn);
+  });
+
+  return () => {
+    if (timeout) clearTimeout(timeout);
+    if (releaseEventListener) releaseEventListener();
+  }
 }
 
 class LocalStorageDriver {
