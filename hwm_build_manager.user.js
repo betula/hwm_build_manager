@@ -159,10 +159,16 @@ class ManagerService {
         }
       },
       enum(value, values) {
-        if (Array.isArray(values)) {
-          if (values.indexOf(value) === -1) throw INVALID;
+        if (Array.isArray(value)) {
+          for (let once of value) {
+            Checker.enum(once, values);
+          }
         } else {
-          if (!values.hasOwnProperty(value)) throw INVALID;
+          if (Array.isArray(values)) {
+            if (values.indexOf(value) === -1) throw INVALID;
+          } else {
+            if (!values.hasOwnProperty(value)) throw INVALID;
+          }
         }
       },
       length(value, len) {
@@ -171,8 +177,10 @@ class ManagerService {
 
     };
 
+    let items = [];
+
     try {
-      const items = JSON.parse(value);
+      items = JSON.parse(value);
       Checker.array(items);
 
       for (let item of items) {
@@ -194,6 +202,7 @@ class ManagerService {
         Checker.length(army, 7);
         army.forEach(Checker.number);
 
+        Checker.array(skill);
         Checker.enum(skill, this.services.skill.map);
       }
 
@@ -552,6 +561,11 @@ class ImportService {
       for (let chunk of chunks) {
         items.push( parseInt(chunk.split(':')[1].substr(57,3)) || 0 );
       }
+
+      for (let i = items.length; i < this.services.army.iterator.length; i++) {
+        items.push(0);
+      }
+
       return items;
     });
   }
@@ -1431,14 +1445,19 @@ styles(`
   border-bottom: 1px #5D413A solid;
   text-align: right;
 }
-.mb-import-popup__close-button {
+.mb-import-popup__close-button,
+.mb-import-popup__import-button {
   display: inline-block;
   cursor: pointer;
   color: rgb(89, 44, 8);
   padding: 4px 6px;
 }
-.mb-import-popup__close-button:hover {
+.mb-import-popup__close-button:hover,
+.mb-import-popup__import-button:hover {
   text-decoration: underline;
+}
+.mb-import-popup__import-button {
+  font-weight: bold;
 }
 .mb-import-popup__body {  
   background: #fff;
@@ -1454,16 +1473,21 @@ styles(`
   border: none;
 }
 .mb-import-popup__footer {
-  padding: 3px 5px 4px 5px;
   border-top: 1px #5D413A solid;
   background: #F5F3EA;
-  height: 16px;
+}
+.mb-import-popup__import-error-message {
+  color: red;
+  margin-left: 10px;
+  display: inline-block;
+  padding: 4px 6px;
 }
 `);
 class ImportPopup {
 
   constructor({ attrs: { services }}) {
     this.services = services;
+    this.invalid = false;
   }
 
   oncreate({ dom, attrs: { onclose } }) {
@@ -1474,15 +1498,35 @@ class ImportPopup {
     this.releaseClickOutEventListener();
   }
 
-  view({ attrs: { onclose }}) {
+  view({ attrs: { onclose, onimport }}) {
+
+    const onchange = (value) => {
+      this.data = value;
+      this.invalid = false;
+    }
+
+    const importAction = () => {
+      if (this.services.manager.unserialize(this.data)) {
+        this.data = null;
+        onimport();
+      } else {
+        this.invalid = true;
+      }
+    }
+
     return m('.mb-import-popup__box', [
       m('.mb-import-popup__header', [
         m('.mb-import-popup__close-button', { onclick: onclose }, 'Закрыть')
       ]),
       m('.mb-import-popup__body', [
-        m('textarea')
+        m('textarea', { value: this.data, oninput: m.withAttr('value', onchange) })
       ]),
-      m('.mb-import-popup__footer')
+      m('.mb-import-popup__footer', [
+        m('.mb-import-popup__import-button', { onclick: importAction }, 'Импорт'),
+        this.invalid 
+          ? m('.mb-import-popup__import-error-message', 'Некорректный формат данных')
+          : null
+      ])
     ])
   }
 
@@ -1634,6 +1678,19 @@ class ManagerComponent {
       onclose();
     };
     
+    const exportCloseAction = () => {
+      this.exportPopup = false;
+    };
+
+    const importCloseAction = () => {
+      this.importPopup = false;
+    };
+
+    const importAction = () => {
+      this.importPopup = false;
+      this.selected = null;
+    };
+
     const headerLeft = () => {
       let controls = [];
       
@@ -1716,10 +1773,10 @@ class ManagerComponent {
 
       return [
         this.exportPopup 
-          ? m(ExportPopup, { services: this.services, onclose: () => { this.exportPopup = false }})
+          ? m(ExportPopup, { services: this.services, onclose: exportCloseAction })
           : null,
         this.importPopup
-          ? m(ImportPopup, { services: this.services, onclose: () => { this.importPopup = false }})
+          ? m(ImportPopup, { services: this.services, onclose: importCloseAction, onimport: importAction })
           : null
       ]
     }
