@@ -11,6 +11,10 @@
 2. Установите скрипт [hwm_build_manager.user.js](https://github.com/betula/hwm_build_manager/raw/master/hwm_build_manager.user.js),
 3. Enjoy.
 
+## Ошибки и Улучшения
+
+Что бы отправить предложение по улучшению или информацию по обнаруженной ошибке, необходимо создать новый "Issue" [здесь](https://github.com/betula/hwm_build_manager/issues).
+
 ## Автор
 
 * Профиль на github [betula](https://github.com/betula/)
