@@ -438,31 +438,17 @@ class ChangeService {
   }
 
   _reset() {
+    let resetLinkPromise = Promise.resolve(this.cache.resetLink);
 
-    const buyTube = () => {
-      let resetTubeUrl = Promise.resolve(this.cache.resetTubeUrl);
-
-      if (!this.cache.resetTubeUrl) {
-        resetTubeUrl = httpPlainRequest('GET', '/shop.php', { cat: 'potions' }).then((html) => {
-          let m = html.match(/\/shop\.php\?b=reset_tube&cat=potions&sign=[0-9a-f]+/);
-          if (!m) return null;
-          return this.cache.resetTubeUrl = m[0];
-        })
-      }
-
-      return resetTubeUrl.then((url) => httpPlainRequest('GET', url));
-    }
-
-    const drinkTube = () => {
-      return httpPlainRequest('GET', '/inventory.php').then((html) => {
-        let m = html.match(/\<a href='art_info\.php\?id=reset_tube'.+?change_star1\((\d+)/);
+    if (!this.cache.resetLink) {
+      resetLinkPromise = httpPlainRequest('GET', '/shop.php', { cat: 'potions' }).then((html) => {
+        let m = html.match(/\/shop\.php\?b=reset_tube&reset=1&cat=potions&sign=[0-9a-f]+/);
         if (!m) return null;
-
-        return httpPlainRequest('GET', '/inventory.php', { dress: m[1] })
+        return this.cache.resetLink = m[0];
       })
     }
 
-    return buyTube().then(drinkTube);
+    return resetLinkPromise.then((url) => httpPlainRequest('GET', url));
   }
 
   _attribute(obj) {
@@ -829,6 +815,7 @@ class SkillService {
         { id: "graduate", name: "Выпускник" },
         { id: "wizard_reward", name: "Колдовская награда" },
         { id: "know_your_enemy", name: "Лесное коварство" },
+        { id: "lord_of_the_undead", name: "Повелитель мёртвых" },
         { id: "intelligence", name: "Притяжение маны" },
         { id: "dark_revelation", name: "Тёмное откровение" },
         { id: "arcane_exaltation", name: "Хранитель тайного" },
@@ -837,6 +824,7 @@ class SkillService {
         { id: "dark2", name: "Сильная магия Тьмы", main: true },
         { id: "dark3", name: "Искусная магия Тьмы", main: true },
         { id: "weakening_strike", name: "Ослабляющий удар" },
+        { id: "fallen_knight", name: "Падший рыцарь" },
         { id: "master_of_pain", name: "Повелитель боли" },
         { id: "master_of_curses", name: "Повелитель проклятий" },
         { id: "master_of_mind", name: "Повелитель разума" },
@@ -859,6 +847,7 @@ class SkillService {
         { id: "master_of_abjuration", name: "Дарующий защиту" },
         { id: "fire_resistance", name: "Защита от огня" },
         { id: "master_of_wrath", name: "Повелитель ярости" },
+        { id: "twilight", name: "Сумерки" },
         { id: "refined_mana", name: "Тайны света" },
       ]}, { id: "summon", name: "Магия Природы", list: [
         { id: "summon1", name: "Основы магии Природы", main: true },
@@ -870,6 +859,7 @@ class SkillService {
         { id: "sorcery2", name: "Развитое чародейство", main: true },
         { id: "sorcery3", name: "Искусное чародейство", main: true },
         { id: "mana_regeneration", name: "Восполнение маны" },
+        { id: "boneward", name: "Защита от магии хаоса" },
         { id: "erratic_mana", name: "Изменчивая мана" },
         { id: "magic_insight", name: "Мудрость" },
         { id: "arcane_brillance", name: "Тайное откровение" },
@@ -878,13 +868,22 @@ class SkillService {
       ]}, { id: "special", name: "Фракция", list: [
         { id: "hellfire", name: "Адское пламя" },
         { id: "magic_mirror", name: "Волшебное зеркало" },
+        { id: "runeadv", name: "Дополнительные руны" },
+        { id: "necr_soul", name: "Духовная связь" },
         { id: "zakarrow", name: "Заколдованная стрела" },
         { id: "nomagicdamage", name: "Контроль магии" },
         { id: "elf_shot", name: "Ливень из стрел" },
+        { id: "benediction", name: "Молитва" },
+        { id: "knight_mark", name: "Надзор" },
+        { id: "memoryblood", name: "Память нашей Крови" },
         { id: "cre_master", name: "Повелитель существ" },
         { id: "consumecorpse", name: "Поглощение трупов" },
+        { id: "barb_skill", name: "Пробивающая мощь" },
+        { id: "powerraise", name: "Совершенное Поднятие мертвецов" },
+        { id: "dark_blood", name: "Тёмная кровь" },
         { id: "dark_power", name: "Тёмная сила" },
-      ]}, 
+        { id: "save_rage", name: "Упорство ярости" },
+      ]} 
     ];
     
     this.map = {};
@@ -1294,7 +1293,7 @@ styles(`
 }
 .mb-editor__section-column {
   float: left;
-  margin-right: 55px;
+  margin-right: 30px;
 }
 .mb-editor__section-column:last-child {
   margin-right: 0;
