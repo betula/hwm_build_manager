@@ -1,5 +1,11 @@
 # Менеджер билдов для HWM
 
+## Установка
+
+1. Установите [Greasemonkey](https://addons.mozilla.org/ru/firefox/addon/greasemonkey/),
+2. Установите скрипт [hwm_build_manager.user.js](https://github.com/betula/hwm_build_manager/raw/master/hwm_build_manager.user.js),
+3. Enjoy.
+
 ## Описание
 
 Скрипт позволяет переключаться между билдами с любой "страницы" игры.
@@ -33,12 +39,6 @@
 4. Текущий установленный билд выделен красным
 5. Список билдов, нажатие на имя билда приводит к установке этого билда
 6. Сброс текущего установленного билда
-
-## Установка
-
-1. Установите [Greasemonkey](https://addons.mozilla.org/ru/firefox/addon/greasemonkey/),
-2. Установите скрипт [hwm_build_manager.user.js](https://github.com/betula/hwm_build_manager/raw/master/hwm_build_manager.user.js),
-3. Enjoy.
 
 ## Ошибки и Улучшения
 
