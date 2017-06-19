@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name        hwm_build_manager
 // @author      Chie (http://www.heroeswm.ru/pl_info.php?id=645888)
+// @icon        https://s.gravatar.com/avatar/5fd0059ad34d082dfbd50cfdeb9aab6a
 // @description Менеджер билдов для HWM
 // @namespace   https://github.com/betula/hwm_build_manager
 // @homepage    https://github.com/betula/hwm_build_manager
