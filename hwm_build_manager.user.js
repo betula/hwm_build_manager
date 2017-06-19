@@ -11,7 +11,7 @@
 // @encoding    utf-8
 // @version     1.0.0
 // @grant       none
-// @require     https://unpkg.com/mithril@1.1.1/mithril.min.js
+// @require     https://cdn.rawgit.com/MithrilJS/mithril.js/v1.1.1/mithril.min.js
 // ==/UserScript==
 
 
