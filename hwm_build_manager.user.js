@@ -9,7 +9,7 @@
 // @include     http://178.248.235.15/*
 // @include     http://*lordswm.com/*
 // @encoding    utf-8
-// @version     1.0.0
+// @version     1.0.1
 // @grant       none
 // @require     https://cdn.rawgit.com/MithrilJS/mithril.js/v1.1.1/mithril.min.js
 // ==/UserScript==
@@ -796,6 +796,7 @@ class SkillService {
         { id: "luck2", name: "Большая удача", main: true },
         { id: "luck3", name: "Постоянная удача", main: true },
         { id: "magic_resistance", name: "Магическое сопротивление" },
+        { id: "piercing_luck", name: "Пронзающая удача" },
         { id: "soldier_luck", name: "Солдатская удача" },
         { id: "warlock_luck", name: "Удачливый чародей" },
         { id: "swarming_gate", name: "Широкие врата ада" },
