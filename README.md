@@ -3,7 +3,7 @@
 ## Установка
 
 1. Установите [Greasemonkey](https://addons.mozilla.org/ru/firefox/addon/greasemonkey/),
-2. Установите скрипт hwm_build_manager.user.js [github](https://github.com/betula/hwm_build_manager/raw/master/hwm_build_manager.user.js) [greasyfork](https://greasyfork.org/ru/scripts/30768-hwm-build-manager),
+2. Установите скрипт `hwm_build_manager.user.js` через [github](https://github.com/betula/hwm_build_manager/raw/master/hwm_build_manager.user.js) или [greasyfork](https://greasyfork.org/ru/scripts/30768-hwm-build-manager),
 3. Enjoy.
 
 ## Описание
