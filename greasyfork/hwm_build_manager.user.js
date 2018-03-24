@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 
-// Build Manager 1.0.1
+// Build Manager 1.0.2
 
 class ServiceContainer {
   
