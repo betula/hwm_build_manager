@@ -4,12 +4,11 @@
 // @icon        https://s.gravatar.com/avatar/5fd0059ad34d082dfbd50cfdeb9aab6a
 // @description Менеджер билдов для HWM
 // @namespace   https://github.com/betula/hwm_build_manager
-// @homepage    https://github.com/betula/hwm_build_manager
+// @homepageURL https://github.com/betula/hwm_build_manager
 // @include     http://*heroeswm.ru/*
 // @include     http://178.248.235.15/*
 // @include     http://*lordswm.com/*
-// @encoding    utf-8
-// @version     1.0.1
+// @version     1.0.2
 // @grant       none
 // @require     https://cdn.rawgit.com/MithrilJS/mithril.js/v1.1.1/mithril.min.js
 // ==/UserScript==
@@ -293,9 +292,9 @@ class CurrentService {
       .then((item) => {
         this._update(item);
         return item;
-      }, () => {
+      }, (e) => {
         this._update();
-        return Promise.reject();
+        return Promise.reject(e);
       });
   }
   
@@ -442,21 +441,20 @@ class ChangeService {
     let resetLinkPromise = Promise.resolve(this.cache.resetLink);
 
     if (!this.cache.resetLink) {
-      resetLinkPromise = httpPlainRequest('GET', '/shop.php', { cat: 'potions' }).then((html) => {
-        let m = html.match(/\/shop\.php\?b=reset_tube&reset=1&cat=potions&sign=[0-9a-f]+/);
+      resetLinkPromise = httpPlainRequest('GET', '/home.php').then((html) => {
+        let m = html.match(/shop\.php\?b=reset_tube&reset=2&sign=[0-9a-f]+/);
         if (!m) return null;
-        return this.cache.resetLink = m[0];
+        return this.cache.resetLink = '/' + m[0];
       })
     }
 
-    return resetLinkPromise.then((url) => httpPlainRequest('GET', url));
+    return resetLinkPromise.then((url) => (url ? httpPlainRequest('GET', url) : null));
   }
 
   _attribute(obj) {
-
     const getTotal = () => {
       return httpPlainRequest('GET', '/home.php').then((html) => {
-        let m = html.match(/href="home\.php\?increase_all=knowledge".*?(\d+)\<\/td/);
+        let m = html.match(/href="home\.php\?increase_all=knowledge"(?:.|\n)*?(\d+)\<\/td/);
         if (!m) return null;
         return parseInt(m[1]) || null;
       });
@@ -855,7 +853,9 @@ class SkillService {
         { id: "summon1", name: "Основы магии Природы", main: true },
         { id: "summon2", name: "Сильная магия Природы", main: true },
         { id: "summon3", name: "Искусная магия Природы", main: true },
+        { id: "master_of_conjuration", name: "Повелитель волшебства" },
         { id: "master_of_life", name: "Повелитель жизни" },
+        { id: "master_of_obstacles", name: "Повелитель препятствий" },
       ]}, { id: "sorcery", name: "Чародейство", list: [
         { id: "sorcery1", name: "Основы чародейства", main: true },
         { id: "sorcery2", name: "Развитое чародейство", main: true },
@@ -2031,7 +2031,7 @@ class AppComponent {
 }
 
 
-function main() {
+function mount() {
   let container = document.querySelector('body table table td');
   if (!container) return
   
@@ -2216,12 +2216,15 @@ function httpPlainRequest(method, url, data) {
   });
 }
 
-try {
-  styles(null, true);
-  main();
-}
-catch(e) {
-  console.error(e);
+function main() {
+  try {
+    styles(null, true);
+    mount();
+  }
+  catch(e) {
+    console.error(e);
+  }
 }
 
+main();
 
